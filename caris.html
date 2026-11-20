@@ -459,7 +459,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 상대팀박스스코어 v19';
+const BUILD = '2026-11-20 성적순 포지션 유지 v20';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -933,16 +933,21 @@ function bdAuto(kind){
     setSlots(slots, shuffle(chosen)); return;
   }
   const key = kind === 'classic' ? 'OPS' : kind;
-  chosen = pool.slice().sort((a, c) => stat(c, key) - stat(a, key)).slice(0, n);
-  const asg = autoAssign(chosen);
-  const batters = asg.DH && asg.P ? chosen.filter(x => x !== asg.P) : chosen;
-  order = batters.slice();
+  // 이미 배치한 선수의 포지션은 그대로 두고, 빈 자리만 남은 후보(성적 좋은 순)로 랜덤 포지션에 채워요
+  const slots = {};
+  Object.keys(b.slots).forEach(k => { if(pool.includes(b.slots[k]) && (b.dh || k !== 'DH')) slots[k] = b.slots[k]; });
+  const placed = Object.values(slots);
+  const freeSlots = shuffle(SLOTS.concat(b.dh ? ['DH'] : []).filter(k => !slots[k]));
+  pool.filter(x => !placed.includes(x)).sort((a, c) => stat(c, key) - stat(a, key)).slice(0, freeSlots.length).forEach((x, i) => { slots[freeSlots[i]] = x; });
+  chosen = Object.values(slots);
+  const batters = slots.DH && slots.P ? chosen.filter(x => x !== slots.P) : chosen;
+  order = batters.slice().sort((a, c) => stat(c, key) - stat(a, key));
   if(kind === 'classic'){
     const left = batters.slice(), pick = (k) => { left.sort((a, c) => stat(c, k) - stat(a, k)); return left.shift(); };
     order = [pick('출루율'), pick('출루율'), pick('OPS'), pick('장타율')].filter(Boolean);
     left.sort((a, c) => stat(c, 'OPS') - stat(a, 'OPS')); order = order.concat(left);
   }
-  setSlots(asg, order);
+  setSlots(slots, order);
 }
 function bdShuffleOrder(){ const b = state.build; if(b.order.length < 2) return; b.order = shuffle(b.order); b.sel = null; saveDraft(); }
 function bdShufflePos(){
@@ -1085,10 +1090,10 @@ function viewBuilder(){
     ${hint}
     ${b.coach && b.coach.length ? `<div class="coach"><div class="h">🤖 감독의 한마디</div>${b.coach.map(l => `<div>${l}</div>`).join('')}</div>` : ''}
     <div class="field" role="group" aria-label="포지션 배치">${FIELD_SVG}${slotHtml}</div>
-    <h2>타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}${b.slots.DH && b.slots.P ? `<div class="bo" style="opacity:.75"><div class="no">투</div><div class="nm">${esc(b.slots.P)}<small>투수 · 지타 사용으로 타순에서 제외</small></div></div>` : ''}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px"><h2 style="margin:0">후보 <span class="muted" style="font-size:13px">${cands.length}명</span></h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><h2 style="margin:0">후보 <span class="muted" style="font-size:13px">${cands.length}명</span></h2>
       <div class="seg" style="margin:0;width:190px"><button data-act="bd-pool" data-pool="att" aria-pressed="${b.pool === 'att'}" style="padding:6px">참석자 ${attN}</button><button data-act="bd-pool" data-pool="all" aria-pressed="${b.pool === 'all'}" style="padding:6px">전체</button></div></div>
     <div class="cands" id="bd-pool">${candHtml}</div>
+    <h2 style="margin-top:18px">타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}${b.slots.DH && b.slots.P ? `<div class="bo" style="opacity:.75"><div class="no">투</div><div class="nm">${esc(b.slots.P)}<small>투수 · 지타 사용으로 타순에서 제외</small></div></div>` : ''}
     <div class="bd-bar" style="margin-top:10px"><button class="hot" data-act="bd-save">☁️ 시트에 저장</button><button data-act="bd-lock">🔒 잠그기</button><button class="hot" data-act="bd-copy">📤 복사하기 (단톡방용)</button></div>
     <p class="muted" style="font-size:12px">작업 중인 라인업은 이 기기에 자동 저장돼요. “시트에 저장”을 누르면 팀원 모두의 “라인업 보기”에 반영돼요.</p>`;
 }
