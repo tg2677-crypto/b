@@ -58,6 +58,48 @@ header{border-bottom:3px solid var(--crest,var(--amber))}
 .wx b{font-size:18px;color:#fff}
 .wx .sm{font-size:12px;color:#9DB5A6;width:100%}
 
+/* 시상·전적·MVP·개인 페이지 */
+.h2h{font-size:13px;margin-top:4px;color:#C9D8CE}
+.card .h2h{color:var(--mute)}
+.awgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+@media(max-width:380px){.awgrid{grid-template-columns:1fr}}
+.aw{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
+.aw h3{margin:0;font-size:15px}
+.aw small{display:block;color:var(--mute);font-size:11px;margin-bottom:6px}
+.awr{display:flex;align-items:center;gap:6px;font-size:14px;padding:3px 0;font-variant-numeric:tabular-nums}
+.awr .md{width:22px;text-align:center}
+.awr .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.awr b{color:var(--chip-on)}
+
+table.h2t{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table.h2t th,table.h2t td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--line)}
+table.h2t th:first-child,table.h2t td:first-child{text-align:left}
+table.h2t th{font-size:12px;color:var(--mute)}
+.mvp{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.mvp .mh{font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.mvp .mh span{font-weight:400;font-size:12px;color:var(--mute)}
+.mvp .mchips{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.mvp button.mc{position:relative;text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 10px;cursor:pointer;overflow:hidden;display:flex;justify-content:space-between;gap:8px}
+.mvp button.mc i{position:absolute;left:0;top:0;bottom:0;background:var(--chip-on);opacity:.16}
+.mvp button.mc span{position:relative}
+.mvp button.mc[aria-pressed=true]{border-color:var(--chip-on);box-shadow:0 0 0 1px var(--chip-on) inset;font-weight:700}
+.mvp .who-row{margin-top:8px}
+#pd{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
+#pd.on{display:flex}
+#pd .pd-sheet{background:var(--bg);color:var(--ink);width:100%;max-width:640px;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+#pd .pd-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+#pd .pd-top h2{margin:0;font-size:22px}
+#pd .pd-x{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:36px;height:36px;font-size:16px;cursor:pointer;flex:none}
+#pd h4{margin:18px 0 6px;font-size:14px}
+.pdtiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.pdtiles div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center}
+.pdtiles b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.pdtiles span{font-size:11px;color:var(--mute)}
+.pdg{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.pdg span:first-child{color:var(--mute);flex:none}
+svg.trend{width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.member{cursor:pointer}
+
 /* 헤더 */
 header{
   position:sticky; top:0; z-index:5; background:var(--board); color:#EAF1EC;
@@ -300,6 +342,7 @@ details.roster summary{cursor:pointer;color:var(--mute);min-height:34px;display:
     <div class="btns"><button class="cancel" data-act="confirm-cancel">취소</button><button class="ok" data-act="confirm-ok">확인</button></div>
   </div>
 </div>
+<div id="pd" data-act="pd-bg"><div class="pd-sheet" id="pdBody"></div></div>
 <div id="lightbox" data-act="close-photo"><button class="lb-close" data-act="close-photo" aria-label="닫기">✕</button><img alt="경기 사진"></div>
 
 <script>
@@ -312,6 +355,7 @@ const CONFIG = {
   DESC: '경기 안산시',
   TABS: { members: '팀원', schedule: '일정', lineup: '라인업' },
   REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
+  VOTE_TAB: 'MVP투표',     // MVP 투표가 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_TAB: '참석',      // 참석 응답이 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_URL: 'https://script.google.com/macros/s/AKfycbywqQs0U3Erp3VGG0f17SklgH46yRtWcDt_sHgoakzYtDUsFy3_iZ0cMh16VnkUtsSJCA/exec'  // 참석 체크용 Apps Script 웹 앱 주소
 };
@@ -482,9 +526,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 날씨 v23';
+const BUILD = '2026-11-20 시상·MVP·개인페이지·전적 v24';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -509,13 +553,14 @@ async function load(){
   }
   try{
     const recKeys = Object.keys(CONFIG.REC_TABS);
-    const [members, schedule, lineup, attendRaw, ...recRows] = await Promise.all([
+    const [members, schedule, lineup, attendRaw, votes, ...recRows] = await Promise.all([
       ...Object.values(CONFIG.TABS).map(loadTab),
       loadTab(CONFIG.ATTEND_TAB).catch(() => []),
+      loadTab(CONFIG.VOTE_TAB).catch(() => []),
       ...recKeys.map(k => loadTab(CONFIG.REC_TABS[k]).catch(() => []))
     ]);
     const rec = {}; recKeys.forEach((k, i) => rec[k] = recRows[i] || []);
-    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), rec}; applyPending(); state.loaded = true; state.offline = false; state.lastLoad = Date.now();
+    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), votes, rec}; applyPending(); state.loaded = true; state.offline = false; state.lastLoad = Date.now();
     writeCache(state.data);
   }catch(e){
     if(state.loaded) state.offline = true;
@@ -684,9 +729,130 @@ function viewRecord(){
     h += `<div class="sumrow"><div><b>${esc(tv['순위'] || '-')}</b><span>순위</span></div><div><b>${esc(tv['승'] ?? '-')}-${esc(tv['패'] ?? '-')}${tv['무'] && tv['무'] !== '0' ? '-' + esc(tv['무']) : ''}</b><span>승-패</span></div><div><b>${esc(tv['득점'] ?? '-')}</b><span>득점</span></div><div><b>${esc(tv['실점'] ?? '-')}</b><span>실점</span></div></div>`;
     if(tv['리그']) h += `<p class="muted" style="font-size:12px;margin:6px 0 0">${esc(tv['리그'])}</p>`;
   }
-  h += `<div class="seg"><button data-act="rec-sub" data-sub="bat" aria-pressed="${state.recSub === 'bat'}">타자</button><button data-act="rec-sub" data-sub="pit" aria-pressed="${state.recSub === 'pit'}">투수</button></div>` + statTable(state.recSub);
+  h += `<div class="seg"><button data-act="rec-sub" data-sub="bat" aria-pressed="${state.recSub === 'bat'}">타자</button><button data-act="rec-sub" data-sub="pit" aria-pressed="${state.recSub === 'pit'}">투수</button><button data-act="rec-sub" data-sub="aw" aria-pressed="${state.recSub === 'aw'}">🏆 시상·전적</button></div>` + (state.recSub === 'aw' ? awardsView() : statTable(state.recSub));
   return h;
 }
+
+
+/* ---------- 시상 · 전적 · MVP · 개인 페이지 ---------- */
+const normT = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+const usRow = r => !r['팀'] || r['팀'] === CONFIG.TEAM_NAME;
+const innNum = v => { const [a, b] = String(v ?? '').split('.'); return N(a) + N(b) / 3; };
+function h2h(opp){
+  let w = 0, l = 0, d = 0;
+  gamesOf().filter(g => normT(g['상대팀']) === normT(opp)).forEach(g => { const r = resultInfo(g); if(!r) return; if(r.cls === 'win') w++; else if(r.cls === 'loss') l++; else d++; });
+  return { w, l, d, n: w + l + d };
+}
+function h2hText(opp){
+  const h = h2h(opp);
+  if(!h.n) return `<div class="h2h">⚔️ 상대 전적 · 첫 만남이에요</div>`;
+  return `<div class="h2h">⚔️ 상대 전적 · <b>${h.w}승${h.d ? ' ' + h.d + '무' : ''} ${h.l}패</b></div>`;
+}
+const MEDAL = ['🥇', '🥈', '🥉'];
+function awardCard(title, note, list, fmt){
+  if(!list.length) return '';
+  const rows = list.slice(0, 3).map((x, i) => { const rk = list.findIndex(y => y.v === x.v); return `<div class="awr"><span class="md">${MEDAL[rk] || '·'}</span><span class="n" data-act="member" data-name="${esc(x.n)}">${esc(x.n)}</span><b>${fmt(x.v)}</b></div>`; }).join('');
+  return `<div class="aw ${list[0] ? 'top1' : ''}"><h3>${title}</h3><small>${note}</small>${rows}</div>`;
+}
+function awardsView(){
+  const bat = recOf('seasonBat'), pit = recOf('seasonPit');
+  if(!bat.length && !pit.length) return `<div class="empty">시즌 기록이 있어야 시상이 나와요.</div>`;
+  const tg = Math.max(0, ...bat.map(r => N(r['팀게임'])), ...pit.map(r => N(r['팀게임'])));
+  const minPA = Math.max(5, Math.round(tg * 0.7)), minInn = Math.max(3, Math.round(tg * 0.35));
+  const top = (rows, key, ok, asc) => rows.filter(r => r['이름'] && ok(r) && (asc || N(r[key]) > 0)).map(r => ({ n: r['이름'], v: N(r[key]) })).sort((a, b) => asc ? a.v - b.v : b.v - a.v);
+  const rate = v => v.toFixed(3).replace(/^0\./, '.'), int = v => String(v);
+  const pa = r => N(r['타석']) >= minPA;
+  let h = `<h2 style="margin-top:8px">🏆 시즌 시상</h2><div class="awgrid">`;
+  h += awardCard('👑 타율왕', `${minPA}타석 이상`, top(bat, '타율', pa), rate);
+  h += awardCard('🎯 출루왕', `${minPA}타석 이상`, top(bat, '출루율', pa), rate);
+  h += awardCard('🔥 OPS왕', `${minPA}타석 이상`, top(bat, 'OPS', pa), rate);
+  h += awardCard('💥 홈런왕', '', top(bat, '홈런', () => true), int);
+  h += awardCard('🏏 안타왕', '', top(bat, '총안타', () => true), int);
+  h += awardCard('💪 타점왕', '', top(bat, '타점', () => true), int);
+  h += awardCard('🏃 득점왕', '', top(bat, '득점', () => true), int);
+  h += awardCard('💨 도루왕', '', top(bat, '도루', () => true), int);
+  h += awardCard('⚾ 다승왕', '', top(pit, '승', () => true), v => v + '승');
+  h += awardCard('🔪 탈삼진왕', '', top(pit, '삼진', () => true), int);
+  h += awardCard('🛡️ 방어율왕', `${minInn}이닝 이상`, top(pit, 'ERA', r => innNum(r['이닝']) >= minInn, true), v => v.toFixed(2));
+  const cnt = {}; (state.data.attend || []).forEach(r => { if(r.answer === '참석') cnt[r.name] = (cnt[r.name] || 0) + 1; });
+  h += awardCard('📅 출석왕', '참석 응답 횟수', Object.keys(cnt).map(n => ({ n, v: cnt[n] })).sort((a, b) => b.v - a.v), v => v + '회');
+  h += `</div>`;
+  const opps = {}; gamesOf().forEach(g => { const r = resultInfo(g); if(!r) return; const k = normT(g['상대팀']); const o = opps[k] = opps[k] || { name: g['상대팀'], w: 0, l: 0, d: 0 }; if(r.cls === 'win') o.w++; else if(r.cls === 'loss') o.l++; else o.d++; });
+  const ol = Object.values(opps).sort((a, b) => (b.w + b.l + b.d) - (a.w + a.l + a.d) || b.w - a.w);
+  if(ol.length) h += `<h2>⚔️ 상대팀별 전적</h2><table class="h2t"><tr><th>상대</th><th>경기</th><th>승</th><th>패</th><th>무</th></tr>${ol.map(o => `<tr><td>${esc(o.name)}</td><td>${o.w + o.l + o.d}</td><td>${o.w}</td><td>${o.l}</td><td>${o.d}</td></tr>`).join('')}</table>`;
+  return h;
+}
+// MVP 투표
+function votesOf(key){
+  const m = {}; (state.data.votes || []).forEach(v => { if(dkey(v) === key && v['투표자'] && v['후보']) m[String(v['투표자']).trim()] = String(v['후보']).trim(); });
+  return m;
+}
+function mvpBlock(g){
+  const key = keyOf(g._d);
+  const cand = [...new Set(byDate('boxBat', key).filter(usRow).concat(byDate('boxPit', key).filter(usRow)).map(r => r['이름']).filter(Boolean))];
+  if(cand.length < 2 || !CONFIG.ATTEND_URL) return '';
+  const vm = votesOf(key), cnt = {}; Object.values(vm).forEach(p => cnt[p] = (cnt[p] || 0) + 1);
+  const total = Object.keys(vm).length, mx = Math.max(0, ...cand.map(n => cnt[n] || 0));
+  const me = (state.data.members.map(m => m['이름']).includes(state.me)) ? state.me : '', mine = me ? vm[me] : '';
+  const list = cand.slice().sort((a, b) => (cnt[b] || 0) - (cnt[a] || 0));
+  return `<div class="mvp"><div class="mh">🏅 이번 경기 MVP 투표 <span>${total}명 투표${me && mine ? ` · 내 선택 ${esc(mine)}` : ''}</span></div>
+    ${me ? '' : `<div class="who-row"><input class="who-input" type="text" placeholder="내 이름 입력 후 투표" autocomplete="off" aria-label="내 이름"><button class="who-ok" data-act="set-me">확인</button></div>`}
+    <div class="mchips">${list.map(n => { const c = cnt[n] || 0; return `<button class="mc" aria-pressed="${mine === n}" data-act="vote" data-date="${key}" data-name="${esc(n)}"><i style="width:${mx ? Math.round(c / mx * 100) : 0}%"></i><span>${c && c === mx ? '👑 ' : ''}${esc(n)}</span><span>${c}표</span></button>`; }).join('')}</div></div>`;
+}
+async function castVote(date, pick){
+  const me = state.me; if(!me){ toast('위에 내 이름을 먼저 입력해 주세요'); return; }
+  if(me === pick){ toast('나 자신에게는 투표할 수 없어요 😄'); return; }
+  const mineNow = votesOf(date)[me];
+  if(mineNow === pick){ toast('이미 이 선수에게 투표했어요'); return; }
+  state.data.votes = (state.data.votes || []).filter(v => !(dkey(v) === date && String(v['투표자']).trim() === me)).concat({ '날짜': date, '투표자': me, '후보': pick });
+  rerenderKeepScroll();
+  if(state.demo){ toast('미리보기라 저장은 되지 않아요'); return; }
+  try{
+    const j = await postJson({ action: 'vote', date, voter: me, pick });
+    if(!j.ok) throw new Error(j.error || '저장 실패');
+    toast(`${pick} 선수에게 투표했어요`); writeCache(state.data);
+  }catch(e){
+    if(e instanceof TypeError){ try{ await fetch(CONFIG.ATTEND_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'vote', date, voter: me, pick }) }); toast('투표를 보냈어요'); }catch(e2){ toast('투표하지 못했어요'); } }
+    else{ toast('투표하지 못했어요: ' + (e.message || e), 4500); load(); }
+  }
+}
+// 개인 페이지
+function trendSvg(games){
+  if(games.length < 2) return '';
+  const W = 320, H = 120, p = 16, n = games.length, bw = Math.min(26, (W - p * 2) / n - 4);
+  let hit = 0, ab = 0; const cum = games.map(g => { hit += g.h; ab += g.ab; return ab ? hit / ab : 0; });
+  const mx = Math.max(.6, ...cum, ...games.map(g => g.ab ? g.h / g.ab : 0)), y = v => H - 22 - (H - 40) * (v / mx), x = i => p + (W - p * 2) * (n === 1 ? .5 : i / (n - 1));
+  const bars = games.map((g, i) => { const v = g.ab ? g.h / g.ab : 0; return `<rect x="${(x(i) - bw / 2).toFixed(1)}" y="${y(v).toFixed(1)}" width="${bw}" height="${(H - 22 - y(v)).toFixed(1)}" rx="3" fill="var(--chip-on)" opacity=".35"/>`; }).join('');
+  const line = cum.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const dots = cum.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" fill="var(--amber)"/>`).join('');
+  const lbl = games.map((g, i) => (n <= 8 || i % 2 === 0) ? `<text x="${x(i).toFixed(1)}" y="${H - 6}" font-size="9" text-anchor="middle" fill="var(--mute)">${g.d.slice(5).replace('-', '/')}</text>` : '').join('');
+  return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="경기별 타율과 누적 타율">${bars}<polyline points="${line}" fill="none" stroke="var(--amber)" stroke-width="2"/>${dots}${lbl}</svg><div class="muted" style="font-size:11px;margin-top:4px">막대 = 그 경기 타율 · 노란 선 = 누적 타율</div>`;
+}
+function playerView(name){
+  const m = state.data.members.find(x => x['이름'] === name) || {};
+  const sb = recOf('seasonBat').find(r => r['이름'] === name), sp = recOf('seasonPit').find(r => r['이름'] === name);
+  const bats = recOf('boxBat').filter(r => r['이름'] === name && usRow(r) && dkey(r)).sort((a, b) => dkey(a).localeCompare(dkey(b)));
+  const pits = recOf('boxPit').filter(r => r['이름'] === name && usRow(r) && dkey(r)).sort((a, b) => dkey(a).localeCompare(dkey(b)));
+  const T = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+  let h = `<div class="pd-top"><div><h2>${esc(name)}${m['번호'] ? ` <span class="muted" style="font-size:15px">#${esc(m['번호'])}</span>` : ''}</h2><div class="muted" style="font-size:13px">${[m['포지션'], m['투타'], m['비고']].filter(Boolean).map(esc).join(' · ')}</div></div><button class="pd-x" data-act="pd-close" aria-label="닫기">✕</button></div>`;
+  if(sb && N(sb['타석']) > 0) h += `<div class="pdtiles">${T(fmtStat('타율', sb['타율']), '타율')}${T(fmtStat('OPS', sb['OPS']), 'OPS')}${T(esc(sb['타점']), '타점')}${T(esc(sb['득점']), '득점')}${T(esc(sb['홈런']), '홈런')}${T(esc(sb['도루']), '도루')}</div>`;
+  if(sp && N(sp['선수게임']) > 0) h += `<div class="pdtiles">${T(fmtStat('ERA', sp['ERA']), '방어율')}${T(esc(sp['이닝']), '이닝')}${T(esc(sp['승']) + '-' + esc(sp['패']), '승-패')}</div>`;
+  if(bats.length){
+    const games = bats.map(r => ({ d: dkey(r), opp: r['상대팀'], ab: N(r['타수']), h: N(r['안타']), rbi: N(r['타점']), sb: N(r['도루']), r: N(r['득점']) }));
+    h += `<h4>📈 경기별 타격</h4>${trendSvg(games)}`;
+    h += games.slice().reverse().map(g => `<div class="pdg"><span>${g.d.slice(5).replace('-', '/')} vs ${esc(g.opp)}</span><span>${g.ab}타수 ${g.h}안타${g.rbi ? ` ${g.rbi}타점` : ''}${g.sb ? ` ${g.sb}도루` : ''}${g.r ? ` ${g.r}득점` : ''}</span></div>`).join('');
+    const by = {}; games.forEach(g => { const k = normT(g.opp), o = by[k] = by[k] || { n: g.opp, g: 0, ab: 0, h: 0, rbi: 0 }; o.g++; o.ab += g.ab; o.h += g.h; o.rbi += g.rbi; });
+    const bl = Object.values(by).filter(o => o.ab).sort((a, b) => b.ab - a.ab);
+    if(bl.length) h += `<h4>🆚 상대팀별 타격</h4><table class="h2t"><tr><th>상대</th><th>경기</th><th>타수</th><th>안타</th><th>타율</th></tr>${bl.map(o => `<tr><td>${esc(o.n)}</td><td>${o.g}</td><td>${o.ab}</td><td>${o.h}</td><td>${(o.h / o.ab).toFixed(3).replace(/^0\./, '.')}</td></tr>`).join('')}</table>`;
+  }
+  if(pits.length) h += `<h4>⚾ 경기별 투구</h4>` + pits.slice().reverse().map(r => `<div class="pdg"><span>${dkey(r).slice(5).replace('-', '/')} vs ${esc(r['상대팀'])}</span><span>${esc(r['이닝'])}이닝 ${esc(r['피안타'])}피안타 ${esc(r['실점'])}실점 ${esc(r['삼진'])}K${r['결과'] ? ' · ' + esc(r['결과']) : ''}</span></div>`).join('');
+  const ar = (state.data.attend || []).filter(r => r.name === name), yes = ar.filter(r => r.answer === '참석').length;
+  if(ar.length) h += `<h4>📅 출석</h4><div class="pdg"><span>참석 응답</span><span><b>${yes}</b> / ${ar.length}경기 (${Math.round(yes / ar.length * 100)}%)</span></div>`;
+  if(!bats.length && !pits.length && !ar.length) h += `<div class="empty">아직 보여줄 기록이 없어요.</div>`;
+  return h;
+}
+function openPlayer(name){ document.getElementById('pdBody').innerHTML = playerView(name); const b = document.getElementById('pd'); b.classList.add('on'); document.getElementById('pdBody').scrollTop = 0; }
+function closePlayer(){ document.getElementById('pd').classList.remove('on'); }
 
 /* ---------- 화면: 일정 ---------- */
 function gamesOf(){
@@ -749,6 +915,7 @@ function viewSchedule(){
         <div class="tag">다음 경기</div>
         <div class="vs">vs ${esc(n['상대팀'])}${batTag(n)}</div>
         <div class="meta">${fmtDate(n._d)} ${esc(n['시간'])}<br>${esc(n['장소'])}</div>
+        ${h2hText(n['상대팀'])}
         <div class="wx" id="wx"><span class="sm">날씨 확인 중…</span></div>
         ${hasLineup ? `<button class="go" data-act="goto-lineup" data-key="${keyOf(n._d)}">라인업 보기</button>` : ''}
       </div></section>`;
@@ -760,7 +927,7 @@ function viewSchedule(){
     if(upcoming.length > 1 && state.more.up){
       html += `<h2>예정 경기</h2>` + upcoming.slice(1).map(g => `
         <div class="card"><div class="next-row"><div><div class="date">${fmtDate(g._d)} ${esc(g['시간'])}</div>
-        <div class="opp">vs ${esc(g['상대팀'])}${batTag(g)}</div></div><div class="date">${esc(g['장소'])}</div></div>${attendFold(g)}</div>`).join('');
+        <div class="opp">vs ${esc(g['상대팀'])}${batTag(g)}</div>${h2hText(g['상대팀'])}</div><div class="date">${esc(g['장소'])}</div></div>${attendFold(g)}</div>`).join('');
     }
   }
   if(past.length){
@@ -774,6 +941,7 @@ function viewSchedule(){
         ${g['점수'] ? `<div class="score">${esc(scoreText(g['점수']))}</div>` : ''}</div></div>
         ${g['장소'] ? `<div class="date">${esc(g['장소'])}</div>` : ''}
         ${hasBox(keyOf(g._d)) ? boxView(g) : ''}
+        ${mvpBlock(g)}
         ${g['후기'] ? `<p class="review">${esc(g['후기'])}</p>` : ''}
         ${photos.length ? `<div class="photos">${photos.map(p => `<img loading="lazy" src="${esc(imgUrl(p))}" data-act="photo" data-src="${esc(imgUrl(p))}" alt="${esc(g['상대팀'])}전 사진">`).join('')}</div>` : ''}
       </article>`;
@@ -1225,7 +1393,7 @@ function membersList(){
     const lead = m['사진'] && /^https?:/.test(m['사진'])
       ? `<img class="avatar" loading="lazy" src="${esc(imgUrl(m['사진']))}" alt="">`
       : `<div class="num">${esc(m['번호'])}</div>`;
-    return `<div class="member">${lead}<div><div class="nm">${esc(m['이름'])}${m['사진'] && m['번호'] ? ` <span class="muted">#${esc(m['번호'])}</span>` : ''}</div>
+    return `<div class="member" data-act="member" data-name="${esc(m['이름'])}">${lead}<div><div class="nm">${esc(m['이름'])}${m['사진'] && m['번호'] ? ` <span class="muted">#${esc(m['번호'])}</span>` : ''}</div>
       <div class="sub">${sub}</div>${memberStat(m['이름'])}</div></div>`;
   }).join('');
 }
@@ -1270,6 +1438,10 @@ document.addEventListener('click', e => {
   const act = el.dataset.act;
   if(act === 'tab'){ state.tab = el.dataset.tab; render(); window.scrollTo(0, 0); }
   else if(act === 'reload'){ load(); }
+  else if(act === 'member'){ openPlayer(el.dataset.name); }
+  else if(act === 'pd-close'){ closePlayer(); }
+  else if(act === 'pd-bg'){ if(e.target === el) closePlayer(); }
+  else if(act === 'vote'){ castVote(el.dataset.date, el.dataset.name); }
   else if(act.startsWith('bd-') || act === 'lu-mode'){
     if(window.__noClick) return;
     const b = state.build;
@@ -1324,7 +1496,7 @@ document.addEventListener('input', e => {
   if(e.target.id === 'search'){ state.query = e.target.value; document.getElementById('mlist').innerHTML = membersList(); }
 });
 document.addEventListener('keydown', e => {
-  if(e.key === 'Escape'){ document.getElementById('lightbox').classList.remove('on'); closeConfirm(); }
+  if(e.key === 'Escape'){ document.getElementById('lightbox').classList.remove('on'); closeConfirm(); closePlayer(); }
   if(e.key === 'Enter' && e.target.id === 'pwin'){ const v = e.target.value; closeConfirm(); bdCheckPw(v); }
   else if(e.key === 'Enter' && e.target.classList && e.target.classList.contains('who-input')) setMe(e.target.value);
 });
