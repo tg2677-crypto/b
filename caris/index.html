@@ -456,7 +456,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 저장후자동반영 v12';
+const BUILD = '2026-11-20 외야표기수정 v13';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
@@ -731,9 +731,9 @@ const POS_KEY = {
   '2루수':'2B','2루':'2B','2B':'2B',
   '3루수':'3B','3루':'3B','3B':'3B',
   '유격수':'SS','유격':'SS','SS':'SS',
-  '좌익수':'LF','좌':'LF','LF':'LF',
-  '중견수':'CF','중':'CF','CF':'CF',
-  '우익수':'RF','우':'RF','RF':'RF'
+  '좌익수':'LF','좌익':'LF','좌':'LF','LF':'LF',
+  '중견수':'CF','중견':'CF','중':'CF','CF':'CF',
+  '우익수':'RF','우익':'RF','우':'RF','RF':'RF'
 };
 // 야구장 그림(360 x 370) 위 포지션별 좌표
 const SPOT = {
