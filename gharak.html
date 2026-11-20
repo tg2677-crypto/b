@@ -124,6 +124,10 @@ svg.trend{width:100%;height:auto;display:block;background:var(--surface);border:
 .cmp-score{text-align:center;margin:12px 0 0;font-weight:700}
 .sharebtn{margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px solid var(--chip-on);background:var(--chip-on);color:var(--chip-on-ink);font-weight:700;cursor:pointer}
 
+.mvp-fold{width:100%;display:flex;justify-content:space-between;gap:8px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:13px;cursor:pointer}
+.mvp-fold b{color:var(--chip-on)}
+.mvp-fold span:last-child{color:var(--mute);white-space:nowrap}
+
 /* 헤더 */
 header{
   position:sticky; top:0; z-index:5; background:var(--board); color:#EAF1EC;
@@ -550,9 +554,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 배지·비교·공유카드·길찾기 v26';
+const BUILD = '2026-11-20 MVP 투표 접기 v27';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -840,7 +844,11 @@ function mvpBlock(g){
   const total = Object.keys(vm).length, mx = Math.max(0, ...cand.map(n => cnt[n] || 0));
   const me = (state.data.members.map(m => m['이름']).includes(state.me)) ? state.me : '', mine = me ? vm[me] : '';
   const list = cand.slice().sort((a, b) => (cnt[b] || 0) - (cnt[a] || 0));
-  return `<div class="mvp"><div class="mh">🏅 이번 경기 MVP 투표 <span>${total}명 투표${me && mine ? ` · 내 선택 ${esc(mine)}` : ''}</span></div>
+  if(mine && !state.openMvp.has(key)){
+    const lead = list[0], lc = cnt[lead] || 0;
+    return `<div class="mvp"><button class="mvp-fold" data-act="mvp-open" data-key="${key}"><span>🏅 MVP 투표 완료 · <b>${esc(mine)}</b></span><span>${lc ? `👑 ${esc(lead)} ${lc}표 · ` : ''}${total}명 ▾</span></button></div>`;
+  }
+  return `<div class="mvp"><div class="mh">🏅 이번 경기 MVP 투표 <span>${total}명 투표${me && mine ? ` · 내 선택 ${esc(mine)} <button class="link" data-act="mvp-close" data-key="${key}">접기 ▴</button>` : ''}</span></div>
     ${me ? '' : `<div class="who-row"><input class="who-input" type="text" placeholder="내 이름 입력 후 투표" autocomplete="off" aria-label="내 이름"><button class="who-ok" data-act="set-me">확인</button></div>`}
     <div class="mchips">${list.map(n => { const c = cnt[n] || 0; return `<button class="mc" aria-pressed="${mine === n}" data-act="vote" data-date="${key}" data-name="${esc(n)}"><i style="width:${mx ? Math.round(c / mx * 100) : 0}%"></i><span>${c && c === mx ? '👑 ' : ''}${esc(n)}</span><span>${c}표</span></button>`; }).join('')}</div></div>`;
 }
@@ -850,6 +858,7 @@ async function castVote(date, pick){
   const mineNow = votesOf(date)[me];
   if(mineNow === pick){ toast('이미 이 선수에게 투표했어요'); return; }
   state.data.votes = (state.data.votes || []).filter(v => !(dkey(v) === date && String(v['투표자']).trim() === me)).concat({ '날짜': date, '투표자': me, '후보': pick });
+  state.openMvp.delete(date);
   rerenderKeepScroll();
   if(state.demo){ toast('미리보기라 저장은 되지 않아요'); return; }
   try{
@@ -1624,6 +1633,8 @@ document.addEventListener('click', e => {
   else if(act === 'share-card'){ shareCard(el.dataset.key); }
   else if(act === 'pd-close'){ closePlayer(); }
   else if(act === 'pd-bg'){ if(e.target === el) closePlayer(); }
+  else if(act === 'mvp-open'){ state.openMvp.add(el.dataset.key); rerenderKeepScroll(); }
+  else if(act === 'mvp-close'){ state.openMvp.delete(el.dataset.key); rerenderKeepScroll(); }
   else if(act === 'vote'){ castVote(el.dataset.date, el.dataset.name); }
   else if(act.startsWith('bd-') || act === 'lu-mode'){
     if(window.__noClick) return;
