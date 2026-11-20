@@ -90,6 +90,34 @@ th.sorted{color:var(--ink)}
 .sumrow b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
 .sumrow span{font-size:11px;color:var(--mute)}
 
+/* 라인업 만들기 */
+.bd-bar{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch}
+.bd-bar button,.bd-btn{flex:none;min-height:40px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}
+.bd-bar button:active,.bd-btn:active{transform:scale(.96)}
+.bd-bar .hot{background:var(--amber);color:#1A1A12;border-color:var(--amber)}
+.bd-hint{font-size:13px;margin:8px 0;padding:9px 12px;border-radius:10px;background:var(--surface);border:1px dashed var(--mute);color:var(--mute)}
+.bd-hint b{color:var(--ink)}
+.bslot{position:absolute;transform:translate(-50%,-50%);min-width:54px;max-width:86px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.2;border-radius:12px;font-size:13px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.bslot.empty{border:2px dashed rgba(255,255,255,.75);color:#fff;border-radius:999px;font-size:12px;font-weight:700;background:rgba(0,0,0,.18)}
+.bslot.full{background:#fff;color:#14201A;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.35);padding:3px 8px}
+.bslot.full small{display:block;font-size:10px;color:#2F7A4E;font-weight:700}
+.bslot.sel,.cand.sel{outline:3px solid var(--amber);outline-offset:1px}
+.bslot.over{outline:3px solid #fff}
+.dhrow{display:flex;align-items:center;gap:10px;margin:10px 0 0}
+.dhrow .bslot{position:relative;transform:none;left:auto;top:auto;background:var(--surface);color:var(--ink);border:2px dashed var(--mute);min-width:96px;max-width:none}
+.dhrow .bslot.full{border:1px solid var(--line)}
+.cands{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px;min-height:46px;padding:8px;border-radius:12px;border:1px dashed var(--line)}
+.cands.over{border-color:var(--amber);background:rgba(245,184,46,.12)}
+.cand{min-height:44px;padding:6px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:700;display:flex;flex-direction:column;justify-content:center;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.cand small{font-size:11px;color:var(--mute);font-weight:400;font-variant-numeric:tabular-nums}
+.cand.maybe{opacity:.6}
+.bo{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:6px}
+.bo .no{flex:none;width:26px;text-align:center;font-weight:900;font-variant-numeric:tabular-nums}
+.bo .nm{flex:1;min-width:0;font-weight:700}
+.bo .nm small{color:var(--mute);font-weight:400;margin-left:6px}
+.bo button{flex:none;width:38px;height:38px;border-radius:8px;border:1px solid var(--line);background:var(--bg);cursor:pointer}
+.ghost{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-120%);background:var(--amber);color:#1A1A12;font-weight:900;padding:8px 14px;border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+
 /* 더보기 · 팀원 기록 */
 .more{display:block;width:100%;margin:10px 0 4px;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:14px;cursor:pointer;color:var(--chip-on)}
 .mstat{font-size:12px;color:var(--ink);margin-top:3px;font-variant-numeric:tabular-nums}
@@ -426,9 +454,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 더보기·팀원기록 v7';
+const BUILD = '2026-11-20 라인업메이커 v8';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -738,7 +766,7 @@ function fieldView(rows){
   if(!chips.length) return '';
   return `<div class="field" role="img" aria-label="포지션별 수비 배치">${FIELD_SVG}${chips.join('')}</div>`;
 }
-function viewLineup(){
+function viewLineupView(){
   const groups = lineupGroups();
   if(!groups.size) return `<div class="empty">아직 등록된 라인업이 없어요.<br>구글 시트의 “라인업” 탭에 추가해 보세요.</div>`;
   const keys = [...groups.keys()].filter(k => k !== 'default').sort().reverse();
@@ -771,6 +799,201 @@ function viewLineup(){
         ${r['포지션'] ? `<div class="pos">${esc(r['포지션'])}</div>` : ''}</div>`;
     }).join('');
 }
+
+/* ---------- 라인업 만들기 ---------- */
+const SLOTS = ['P','C','1B','2B','3B','SS','LF','CF','RF'];
+const SLOT_LABEL = {P:'투수',C:'포수','1B':'1루','2B':'2루','3B':'3루',SS:'유격',LF:'좌익',CF:'중견',RF:'우익',DH:'지타'};
+const SLOT_PRIORITY = ['P','C','SS','CF','2B','3B','1B','LF','RF'];
+const DRAFT_KEY = 'lineup-draft-' + CONFIG.SHEET_ID;
+const readDrafts = () => { try{ return JSON.parse(localStorage.getItem(DRAFT_KEY)) || {}; }catch(e){ return {}; } };
+const memberOf = n => state.data.members.find(m => m['이름'] === n) || {};
+const batRowOf = n => recOf('seasonBat').find(r => r['이름'] === n);
+const pitInn = n => { const r = recOf('seasonPit').find(x => x['이름'] === n); if(!r) return 0; const [a, b] = String(r['이닝'] || '0').split('.'); return (+a || 0) * 3 + (+b || 0); };
+const RATE = new Set(['타율','출루율','장타율','OPS']);
+const stat = (n, k) => { const r = batRowOf(n); if(!r || r[k] === undefined || r[k] === '') return -1; const v = N(r[k]); const pa = N(r['타석']); return RATE.has(k) && pa < 8 ? v * (pa / 8) : v; };  // 타석이 적은 선수는 기록이 부풀려지지 않게 보정
+const shuffle = a => { a = a.slice(); for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function prefSlots(n){
+  const t = String(memberOf(n)['포지션'] || ''), set = new Set();
+  Object.entries(POS_KEY).forEach(([k, v]) => { if(t.toUpperCase().includes(k.toUpperCase())) set.add(v); });
+  if(/외야/.test(t)) ['LF','CF','RF'].forEach(x => set.add(x));
+  if(/내야/.test(t)) ['1B','2B','3B','SS'].forEach(x => set.add(x));
+  return set;
+}
+function autoAssign(names){
+  const slots = {}; let rest = shuffle(names).sort((a, b) => prefSlots(a).size - prefSlots(b).size);
+  const avail = SLOT_PRIORITY.slice(0, Math.min(9, rest.length));
+  const take = (s, pred) => { const i = rest.findIndex(pred); if(i < 0) return false; slots[s] = rest.splice(i, 1)[0]; return true; };
+  avail.forEach(s => { if(s === 'P') (take(s, n => pitInn(n) > 0 && prefSlots(n).has('P')) || take(s, n => prefSlots(n).has('P'))); else take(s, n => prefSlots(n).has(s)); });
+  avail.filter(s => !slots[s]).forEach(s => {
+    if(s === 'P'){ const best = rest.slice().sort((a, b) => pitInn(b) - pitInn(a))[0]; if(best && pitInn(best) > 0){ take(s, n => n === best); return; } }
+    if(rest.length) slots[s] = rest.shift();
+  });
+  if(names.length >= 10 && rest.length) slots.DH = rest.shift();
+  return slots;
+}
+function poolNames(key, mode){
+  const am = attendMap()[key] || {};
+  const names = state.data.members.map(m => m['이름']).filter(Boolean);
+  if(mode === 'att') return names.filter(n => am[n] === '참석' || am[n] === '미정');
+  return names;
+}
+function buildKeys(){
+  const t = keyOf(today0());
+  const up = gamesOf().filter(g => keyOf(g._d) >= t).map(g => keyOf(g._d)).sort();
+  const ks = [...new Set(up)].slice(0, 8);
+  return ks.length ? ks : [t];
+}
+function initBuild(){
+  const keys = buildKeys(), key = state.build && keys.includes(state.build.key) ? state.build.key : keys[0];
+  if(state.build && state.build.key === key) return;
+  const am = attendMap()[key] || {};
+  const d = readDrafts()[key];
+  state.build = { key, pool: Object.values(am).some(v => v === '참석') ? 'att' : 'all', slots: d ? d.slots : {}, order: d ? d.order : [], sel: null };
+}
+function saveDraft(){
+  const b = state.build; if(!b) return;
+  try{ const all = readDrafts(); all[b.key] = { slots: b.slots, order: b.order }; localStorage.setItem(DRAFT_KEY, JSON.stringify(all)); }catch(e){}
+}
+function slotOf(name){ const b = state.build; return Object.keys(b.slots).find(s => b.slots[s] === name) || ''; }
+function setSlots(slots, order){ const b = state.build; b.slots = slots; const names = Object.values(slots); b.order = (order || b.order.filter(n => names.includes(n))).filter(n => names.includes(n)); names.forEach(n => { if(!b.order.includes(n)) b.order.push(n); }); b.sel = null; saveDraft(); }
+function bdPlace(name, slot){
+  const b = state.build, from = slotOf(name), slots = { ...b.slots }, other = slots[slot];
+  if(from) delete slots[from];
+  if(other && other !== name && from) slots[from] = other;
+  slots[slot] = name;
+  setSlots(slots);
+}
+function bdRemove(slot){ const slots = { ...state.build.slots }; delete slots[slot]; setSlots(slots); }
+function bdAuto(kind){
+  const b = state.build, pool = poolNames(b.key, b.pool);
+  if(pool.length < 2){ toast('후보가 2명 이상 있어야 해요. 위에서 “전체 팀원”으로 바꿔 보세요'); return; }
+  const n = Math.min(pool.length, 10);
+  let chosen, order;
+  if(kind === 'random'){
+    chosen = shuffle(pool).slice(0, n);
+    const ss = shuffle(SLOTS), slots = {}; chosen.forEach((nm, i) => slots[i < 9 ? ss[i] : 'DH'] = nm);
+    setSlots(slots, shuffle(chosen)); return;
+  }
+  const key = kind === 'classic' ? 'OPS' : kind;
+  chosen = pool.slice().sort((a, c) => stat(c, key) - stat(a, key)).slice(0, n);
+  order = chosen.slice();
+  if(kind === 'classic'){
+    const left = chosen.slice(), pick = (k) => { left.sort((a, c) => stat(c, k) - stat(a, k)); return left.shift(); };
+    order = [pick('출루율'), pick('출루율'), pick('OPS'), pick('장타율')].filter(Boolean);
+    left.sort((a, c) => stat(c, 'OPS') - stat(a, 'OPS')); order = order.concat(left);
+  }
+  setSlots(autoAssign(chosen), order);
+}
+function bdShuffleOrder(){ const b = state.build; if(b.order.length < 2) return; b.order = shuffle(b.order); b.sel = null; saveDraft(); }
+function bdShufflePos(){
+  const b = state.build, names = Object.values(b.slots); if(names.length < 2) return;
+  const ks = Object.keys(b.slots), sh = shuffle(names), slots = {}; ks.forEach((k, i) => slots[k] = sh[i]); setSlots(slots, b.order);
+}
+function bdLoadReal(){
+  const rows = lineupGroups().get(state.build.key);
+  if(!rows || !rows.length){ toast('이 날짜에는 시트 라인업이 아직 없어요'); return; }
+  const slots = {}, order = []; const sorted = rows.slice().sort((a, c) => (parseFloat(a['타순']) || 99) - (parseFloat(c['타순']) || 99));
+  sorted.forEach(r => { const raw = (r['포지션'] || '').trim(), k = POS_KEY[raw.toUpperCase()] || POS_KEY[raw] || (/지명|DH|지타/i.test(raw) ? 'DH' : ''); if(r['이름']){ order.push(r['이름']); if(k && !slots[k]) slots[k] = r['이름']; } });
+  setSlots(slots, order);
+}
+function bdText(){
+  const b = state.build, g = gamesOf().find(x => keyOf(x._d) === b.key);
+  const head = g ? `${CONFIG.TEAM_NAME} vs ${g['상대팀']}${(g['선후공'] || '').trim() ? ' (' + g['선후공'].trim() + ')' : ''} · ${fmtDate(g._d)} ${g['시간'] || ''}` : `${CONFIG.TEAM_NAME} 라인업`;
+  const lines = b.order.map((n, i) => `${i + 1}. ${n} (${SLOT_LABEL[slotOf(n)] || '-'})`);
+  const cand = poolNames(b.key, b.pool).filter(n => !slotOf(n));
+  return head + '\n' + lines.join('\n') + (cand.length ? '\n후보: ' + cand.join(', ') : '');
+}
+async function bdCopy(){
+  const t = bdText();
+  try{ await navigator.clipboard.writeText(t); toast('복사했어요. 단톡방에 붙여넣기 하세요'); }
+  catch(e){ const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); toast('복사했어요'); }catch(_){ toast('복사에 실패했어요'); } ta.remove(); }
+}
+const statLine = n => { const r = batRowOf(n); return r ? `${fmtStat('타율', r['타율'])} · OPS ${fmtStat('OPS', r['OPS'])}` : '기록 없음'; };
+function viewBuilder(){
+  initBuild();
+  const b = state.build, am = attendMap()[b.key] || {}, games = gamesOf();
+  const keys = buildKeys();
+  const g = games.find(x => keyOf(x._d) === b.key);
+  const chips = keys.map(k => { const d = parseDate(k); return `<button class="chip" aria-pressed="${k === b.key}" data-act="bd-key" data-key="${k}">${d.getMonth() + 1}/${d.getDate()}</button>`; }).join('');
+  const attN = poolNames(b.key, 'att').length;
+  const sel = b.sel;
+  const hint = sel ? `<div class="bd-hint"><b>${esc(sel.name)}</b> 선택됨 — ${sel.from ? '바꿀 포지션을 누르거나 ' : '놓을 포지션을 누르세요. '}${sel.from ? '<button class="bd-btn" data-act="bd-pull">후보로 보내기</button>' : ''}</div>`
+    : `<div class="bd-hint">후보 이름을 <b>누르거나 꾹 눌러 끌어서</b> 포지션에 놓으세요. 배치된 선수끼리는 서로 자리를 바꿀 수 있어요.</div>`;
+  const slotHtml = SLOTS.map(k => {
+    const [x, y] = SPOT[k], n = b.slots[k], st = `left:${(x / 360 * 100).toFixed(2)}%;top:${(y / 370 * 100).toFixed(2)}%`;
+    return n ? `<div class="bslot full ${sel && sel.name === n ? 'sel' : ''}" style="${st}" data-slot="${k}" data-act="bd-slot" data-drag="${esc(n)}" data-from="${k}"><small>${SLOT_LABEL[k]}</small>${esc(n)}</div>`
+             : `<div class="bslot empty" style="${st}" data-slot="${k}" data-act="bd-slot">${SLOT_LABEL[k]}</div>`;
+  }).join('');
+  const dhN = b.slots.DH;
+  const dh = `<div class="dhrow"><span class="muted" style="font-size:13px">지명타자</span>` + (dhN
+    ? `<div class="bslot full ${sel && sel.name === dhN ? 'sel' : ''}" data-slot="DH" data-act="bd-slot" data-drag="${esc(dhN)}" data-from="DH"><small>지타</small>${esc(dhN)}</div>`
+    : `<div class="bslot empty" data-slot="DH" data-act="bd-slot">지타</div>`) + `</div>`;
+  const cands = poolNames(b.key, b.pool).filter(n => !slotOf(n)).sort((a, c) => (parseFloat(memberOf(a)['번호']) || 999) - (parseFloat(memberOf(c)['번호']) || 999));
+  const candHtml = cands.length ? cands.map(n => `<div class="cand ${am[n] === '미정' ? 'maybe' : ''} ${sel && sel.name === n && !sel.from ? 'sel' : ''}" data-act="bd-cand" data-name="${esc(n)}" data-drag="${esc(n)}">${esc(n)}${am[n] === '미정' ? ' <small>미정</small>' : ''}<small>${statLine(n)}</small></div>`).join('')
+    : `<span class="muted" style="font-size:13px;align-self:center">${poolNames(b.key, b.pool).length ? '모두 배치했어요 🎉' : '아직 참석 응답한 사람이 없어요. “전체 팀원”을 눌러 보세요.'}</span>`;
+  const orderHtml = b.order.length ? b.order.map((n, i) => `<div class="bo"><div class="no">${i + 1}</div><div class="nm">${esc(n)}<small>${SLOT_LABEL[slotOf(n)] || ''} · ${statLine(n)}</small></div>
+      <button data-act="bd-up" data-i="${i}" aria-label="위로" ${i === 0 ? 'disabled' : ''}>▲</button><button data-act="bd-down" data-i="${i}" aria-label="아래로" ${i === b.order.length - 1 ? 'disabled' : ''}>▼</button></div>`).join('')
+    : `<div class="empty" style="padding:14px">배치하면 타순이 여기에 나와요.</div>`;
+  const stats = [['OPS순','OPS'],['타율순','타율'],['출루율순','출루율'],['타점순','타점'],['도루순','도루'],['득점순','득점']];
+  return `<div class="chips" role="group" aria-label="경기 날짜">${chips}</div>
+    <div class="lineup-head">${g ? `vs ${esc(g['상대팀'])}${batTag(g)} · ${fmtDate(g._d)}` : fmtDate(parseDate(b.key))}</div>
+    <div class="sub" style="margin:2px 0 4px;font-size:13px;color:var(--mute)">참석 ${Object.values(am).filter(v => v === '참석').length}명 · 미정 ${Object.values(am).filter(v => v === '미정').length}명 · 불참 ${Object.values(am).filter(v => v === '불참').length}명</div>
+    <div class="sub" style="font-size:12px;font-weight:700;margin:10px 0 2px;color:var(--mute)">한 번에 만들기</div>
+    <div class="bd-bar"><button class="hot" data-act="bd-auto" data-kind="random">🎲 랜덤</button><button class="hot" data-act="bd-auto" data-kind="classic">⭐ 정석 타순</button>${stats.map(([l, k]) => `<button data-act="bd-auto" data-kind="${k}">${l}</button>`).join('')}</div>
+    <div class="sub" style="font-size:12px;font-weight:700;margin:4px 0 2px;color:var(--mute)">조금만 바꾸기</div>
+    <div class="bd-bar"><button data-act="bd-shuf-order">🔀 타순 섞기</button><button data-act="bd-shuf-pos">🔄 포지션 섞기</button><button data-act="bd-real">📋 시트 라인업 불러오기</button><button data-act="bd-clear">🧹 비우기</button></div>
+    ${hint}
+    <div class="field" role="group" aria-label="포지션 배치">${FIELD_SVG}${slotHtml}</div>${dh}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px"><h2 style="margin:0">후보 <span class="muted" style="font-size:13px">${cands.length}명</span></h2>
+      <div class="seg" style="margin:0;width:190px"><button data-act="bd-pool" data-pool="att" aria-pressed="${b.pool === 'att'}" style="padding:6px">참석자 ${attN}</button><button data-act="bd-pool" data-pool="all" aria-pressed="${b.pool === 'all'}" style="padding:6px">전체</button></div></div>
+    <div class="cands" id="bd-pool">${candHtml}</div>
+    <h2>타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}
+    <div class="bd-bar" style="margin-top:10px"><button class="hot" data-act="bd-copy">📤 복사하기 (단톡방용)</button></div>
+    <p class="muted" style="font-size:12px">만든 라인업은 이 기기에 자동 저장돼요. 팀원 모두에게 보이게 하려면 복사해서 공유하거나, 시트 “라인업” 탭에 적어 주세요.</p>`;
+}
+function viewLineup(){
+  const seg = `<div class="seg"><button data-act="lu-mode" data-mode="view" aria-pressed="${state.luMode === 'view'}">📋 라인업 보기</button><button data-act="lu-mode" data-mode="build" aria-pressed="${state.luMode === 'build'}">🛠 라인업 만들기</button></div>`;
+  return seg + (state.luMode === 'build' ? viewBuilder() : viewLineupView());
+}
+function rerenderKeepScroll(){ const y = window.scrollY; render(); window.scrollTo(0, y); }
+
+/* 끌어서 놓기: 마우스는 바로, 터치는 꾹 눌러서(스크롤과 구분) */
+let drag = null, ghostEl = null;
+function dragEnd(){ if(drag && drag.timer) clearTimeout(drag.timer); if(ghostEl){ ghostEl.remove(); ghostEl = null; } document.querySelectorAll('.over').forEach(e => e.classList.remove('over')); drag = null; }
+function dragStart(){ if(!drag) return; drag.active = true; ghostEl = document.createElement('div'); ghostEl.className = 'ghost'; ghostEl.textContent = drag.name; document.body.appendChild(ghostEl); dragMove(drag.x, drag.y); if(navigator.vibrate) try{ navigator.vibrate(15); }catch(e){} }
+function dragMove(x, y){
+  if(ghostEl){ ghostEl.style.left = x + 'px'; ghostEl.style.top = y + 'px'; }
+  document.querySelectorAll('.over').forEach(e => e.classList.remove('over'));
+  const t = document.elementFromPoint(x, y), h = t && t.closest('[data-slot],#bd-pool'); if(h) h.classList.add('over');
+}
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-drag]'); if(!el || state.luMode !== 'build') return;
+  drag = { name: el.dataset.drag, from: el.dataset.from || '', sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, active: false, touch: e.pointerType === 'touch', timer: null };
+  if(drag.touch) drag.timer = setTimeout(dragStart, 300);
+});
+document.addEventListener('pointermove', e => {
+  if(!drag) return; drag.x = e.clientX; drag.y = e.clientY;
+  const dist = Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy);
+  if(!drag.active){
+    if(drag.touch){ if(dist > 10){ clearTimeout(drag.timer); drag = null; } }
+    else if(dist > 6) dragStart();
+    return;
+  }
+  dragMove(e.clientX, e.clientY);
+});
+document.addEventListener('touchmove', e => { if(drag && drag.active) e.preventDefault(); }, { passive: false });
+document.addEventListener('pointerup', e => {
+  if(!drag) return;
+  if(!drag.active){ dragEnd(); return; }
+  const d = drag, t = document.elementFromPoint(e.clientX, e.clientY);
+  dragEnd(); window.__noClick = true; setTimeout(() => window.__noClick = false, 350);
+  const slotEl = t && t.closest('[data-slot]'), pool = t && t.closest('#bd-pool');
+  if(slotEl) bdPlace(d.name, slotEl.dataset.slot);
+  else if(pool && d.from) bdRemove(d.from);
+  rerenderKeepScroll();
+});
+document.addEventListener('pointercancel', () => dragEnd());
+document.addEventListener('contextmenu', e => { if(e.target.closest && e.target.closest('[data-drag]')) e.preventDefault(); });
 
 /* ---------- 화면: 팀원 ---------- */
 function memberStat(name){
@@ -835,6 +1058,28 @@ document.addEventListener('click', e => {
   const act = el.dataset.act;
   if(act === 'tab'){ state.tab = el.dataset.tab; render(); window.scrollTo(0, 0); }
   else if(act === 'reload'){ load(); }
+  else if(act.startsWith('bd-') || act === 'lu-mode'){
+    if(window.__noClick) return;
+    const b = state.build;
+    if(act === 'lu-mode'){ state.luMode = el.dataset.mode; render(); return; }
+    if(act === 'bd-key'){ state.build = null; state.build = { key: el.dataset.key, pool: 'att', slots: {}, order: [], sel: null }; const d = readDrafts()[el.dataset.key]; if(d){ state.build.slots = d.slots; state.build.order = d.order; } if(!Object.values(attendMap()[el.dataset.key] || {}).some(v => v === '참석')) state.build.pool = 'all'; }
+    else if(act === 'bd-pool') b.pool = el.dataset.pool;
+    else if(act === 'bd-cand') b.sel = (b.sel && b.sel.name === el.dataset.name && !b.sel.from) ? null : { name: el.dataset.name, from: '' };
+    else if(act === 'bd-slot'){
+      const slot = el.dataset.slot;
+      if(b.sel){ if(b.sel.from === slot) b.sel = null; else bdPlace(b.sel.name, slot); }
+      else if(b.slots[slot]) b.sel = { name: b.slots[slot], from: slot };
+    }
+    else if(act === 'bd-pull'){ if(b.sel && b.sel.from) bdRemove(b.sel.from); }
+    else if(act === 'bd-auto') bdAuto(el.dataset.kind);
+    else if(act === 'bd-shuf-order') bdShuffleOrder();
+    else if(act === 'bd-shuf-pos') bdShufflePos();
+    else if(act === 'bd-real') bdLoadReal();
+    else if(act === 'bd-clear'){ setSlots({}, []); }
+    else if(act === 'bd-up' || act === 'bd-down'){ const i = +el.dataset.i, j = act === 'bd-up' ? i - 1 : i + 1; if(j >= 0 && j < b.order.length){ [b.order[i], b.order[j]] = [b.order[j], b.order[i]]; saveDraft(); } }
+    else if(act === 'bd-copy'){ bdCopy(); return; }
+    rerenderKeepScroll();
+  }
   else if(act === 'more'){ state.more[el.dataset.k] = !state.more[el.dataset.k]; render(); }
   else if(act === 'rec-sub'){ state.recSub = el.dataset.sub; render(); }
   else if(act === 'sort'){ state.recSort[el.dataset.kind] = el.dataset.col; render(); }
