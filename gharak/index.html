@@ -97,6 +97,9 @@ th.sorted{color:var(--ink)}
 .bd-bar .hot{background:var(--amber);color:#1A1A12;border-color:var(--amber)}
 .dhchk{display:flex;align-items:center;gap:8px;margin:2px 0 8px;font-size:14px;font-weight:700;cursor:pointer}
 .dhchk input{width:22px;height:22px;accent-color:var(--chip-on)}
+.coach{margin:8px 0;padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--chip-on);font-size:13px;line-height:1.7}
+.coach b{color:var(--chip-on)}
+.coach .h{font-weight:900;font-size:14px;margin-bottom:4px}
 .bd-hint{font-size:13px;margin:8px 0;padding:9px 12px;border-radius:10px;background:var(--surface);border:1px dashed var(--mute);color:var(--mute)}
 .bd-hint b{color:var(--ink)}
 .bslot{position:absolute;transform:translate(-50%,-50%);min-width:54px;max-width:86px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.2;border-radius:12px;font-size:13px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
@@ -456,7 +459,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 외야표기수정 v13';
+const BUILD = '2026-11-20 AI감독 v14';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
@@ -857,7 +860,7 @@ function saveDraft(){
   try{ const all = readDrafts(); all[b.key] = { slots: b.slots, order: b.order, dh: b.dh }; localStorage.setItem(DRAFT_KEY, JSON.stringify(all)); }catch(e){}
 }
 function slotOf(name){ const b = state.build; return Object.keys(b.slots).find(s => b.slots[s] === name) || ''; }
-function setSlots(slots, order){ const b = state.build; b.slots = slots; const names = Object.values(slots); b.order = (order || b.order.filter(n => names.includes(n))).filter(n => names.includes(n)); names.forEach(n => { if(!b.order.includes(n)) b.order.push(n); }); b.sel = null; saveDraft(); }
+function setSlots(slots, order){ const b = state.build; b.coach = null; b.slots = slots; const names = Object.values(slots); b.order = (order || b.order.filter(n => names.includes(n))).filter(n => names.includes(n)); names.forEach(n => { if(!b.order.includes(n)) b.order.push(n); }); b.sel = null; saveDraft(); }
 function bdPlace(name, slot){
   const b = state.build, from = slotOf(name), slots = { ...b.slots }, other = slots[slot];
   if(from) delete slots[from];
@@ -866,11 +869,50 @@ function bdPlace(name, slot){
   setSlots(slots);
 }
 function bdRemove(slot){ const slots = { ...state.build.slots }; delete slots[slot]; setSlots(slots); }
+function bdCoach(pool){
+  const b = state.build, dh = b.dh;
+  const n = Math.min(pool.length, dh ? 10 : 9);
+  const val = x => stat(x, 'OPS');
+  const sb = x => stat(x, '도루');
+  const era = x => { const r = recOf('seasonPit').find(y => y['이름'] === x); return r ? N(r['ERA']) : 99; };
+  const nm = x => esc(x);
+  const notes = [];
+  // 1) 투수: 투수 기록이 있는 후보 중 평균자책 가장 낮은 선수 (3이닝 이상)
+  let P = pool.filter(x => pitInn(x) >= 9).sort((a, c) => era(a) - era(c))[0] || pool.filter(x => prefSlots(x).has('P')).sort((a, c) => val(c) - val(a))[0] || '';
+  // 2) 포수: 포수 가능한 후보 중 타격 좋은 선수
+  let C = pool.filter(x => x !== P && prefSlots(x).has('C')).sort((a, c) => val(c) - val(a))[0] || '';
+  const chosen = [P, C].filter(Boolean);
+  pool.filter(x => !chosen.includes(x)).sort((a, c) => val(c) - val(a)).slice(0, n - chosen.length).forEach(x => chosen.push(x));
+  const bench = pool.filter(x => !chosen.includes(x)).sort((a, c) => val(c) - val(a));
+  // 3) 수비 위치: 가능한 포지션 우선, 남으면 타격 좋은 순서로 채우기
+  const slots = {}; if(P) slots.P = P; if(C) slots.C = C;
+  let rest = chosen.filter(x => x !== P && x !== C).sort((a, c) => val(c) - val(a));
+  const need = SLOT_PRIORITY.filter(k => !slots[k]).slice(0, Math.min(9, chosen.length) - Object.keys(slots).length);
+  need.forEach(k => { const i = rest.findIndex(x => prefSlots(x).has(k)); if(i >= 0) slots[k] = rest.splice(i, 1)[0]; });
+  need.filter(k => !slots[k]).forEach(k => { if(rest.length) slots[k] = rest.shift(); });
+  if(dh && rest.length) slots.DH = rest.shift();
+  // 4) 타순: 1번 출루율(+도루), 3번 OPS 최고, 4번 장타율, 2번 다음 OPS, 나머지 OPS순
+  const left = chosen.slice(), take = fn => { left.sort((a, c) => fn(c) - fn(a)); return left.shift(); };
+  const o1 = take(x => stat(x, '출루율') + sb(x) * 0.004), o3 = take(val), o4 = take(x => stat(x, '장타율')), o2 = take(val);
+  const order = [o1, o2, o3, o4].concat(left.sort((a, c) => val(c) - val(a))).filter(Boolean);
+  setSlots(slots, order);
+  const T = (x, k) => { const r = batRowOf(x); return r ? fmtStat(k, r[k]) : '-'; };
+  if(P) notes.push(`⚾ 마운드는 <b>${nm(P)}</b> — 투수 후보 중 평균자책 ${fmtStat('ERA', era(P))}로 가장 안정적이에요.`);
+  else notes.push('⚾ 투수 기록이 있는 후보가 없어서 투수는 직접 정해 주세요.');
+  if(C) notes.push(`🧤 안방은 <b>${nm(C)}</b> — 포수 자리를 볼 수 있는 선수 중 방망이가 가장 좋아요.`);
+  if(o1) notes.push(`1번 <b>${nm(o1)}</b> — 출루율 ${T(o1, '출루율')}, 나가면 뛰는 리드오프.`);
+  if(o3) notes.push(`3번 <b>${nm(o3)}</b> — OPS ${T(o3, 'OPS')}로 팀 중심.`);
+  if(o4) notes.push(`4번 <b>${nm(o4)}</b> — 장타율 ${T(o4, '장타율')}, 해결사 역할.`);
+  if(bench.length) notes.push(`아쉽게 벤치: ${bench.slice(0, 3).map(x => `${nm(x)}(OPS ${T(x, 'OPS')}${N((batRowOf(x) || {})['타석']) < 8 ? ', 타석 적음' : ''})`).join(', ')} — 경기 중 대타·교체로 준비.`);
+  notes.push('<span class="muted">올 시즌 기록과 포지션 정보로 계산한 추천이에요. 타석이 적은 선수는 기록을 낮춰 반영해요. 마음에 안 들면 바로 바꿔 보세요!</span>');
+  b.coach = notes;
+}
 function bdAuto(kind){
   const b = state.build, pool = poolNames(b.key, b.pool);
   if(pool.length < 2){ toast('후보가 2명 이상 있어야 해요. 위에서 “전체 팀원”으로 바꿔 보세요'); return; }
   const n = Math.min(pool.length, b.dh ? 10 : 9);
   let chosen, order;
+  if(kind === 'coach'){ bdCoach(pool); return; }
   if(kind === 'random'){
     chosen = shuffle(pool).slice(0, n);
     const ss = shuffle(SLOTS), slots = {}; chosen.forEach((nm, i) => slots[i < 9 ? ss[i] : 'DH'] = nm);
@@ -1012,16 +1054,17 @@ function viewBuilder(){
   const orderHtml = b.order.length ? b.order.map((n, i) => `<div class="bo"><div class="no">${i + 1}</div><div class="nm">${esc(n)}<small>${SLOT_LABEL[slotOf(n)] || ''} · ${statLine(n)}</small></div>
       <button data-act="bd-up" data-i="${i}" aria-label="위로" ${i === 0 ? 'disabled' : ''}>▲</button><button data-act="bd-down" data-i="${i}" aria-label="아래로" ${i === b.order.length - 1 ? 'disabled' : ''}>▼</button></div>`).join('')
     : `<div class="empty" style="padding:14px">배치하면 타순이 여기에 나와요.</div>`;
-  const stats = [['OPS순','OPS'],['타율순','타율'],['출루율순','출루율'],['타점순','타점'],['도루순','도루'],['득점순','득점']];
+  const stats = [['OPS순','OPS'],['타율순','타율'],['출루율순','출루율'],['타점순','타점'],['득점순','득점']];
   return `<div class="chips" role="group" aria-label="경기 날짜">${chips}</div>
     <div class="lineup-head">${g ? `vs ${esc(g['상대팀'])}${batTag(g)} · ${fmtDate(g._d)}` : fmtDate(parseDate(b.key))}</div>
     <div class="sub" style="margin:2px 0 4px;font-size:13px;color:var(--mute)">참석 ${Object.values(am).filter(v => v === '참석').length}명 · 미정 ${Object.values(am).filter(v => v === '미정').length}명 · 불참 ${Object.values(am).filter(v => v === '불참').length}명</div>
     <div class="sub" style="font-size:12px;font-weight:700;margin:10px 0 2px;color:var(--mute)">한 번에 만들기</div>
     <label class="dhchk"><input type="checkbox" data-act="bd-dh" ${b.dh ? 'checked' : ''}> 지명타자(지타) 사용</label>
-    <div class="bd-bar"><button class="hot" data-act="bd-auto" data-kind="random">🎲 랜덤</button><button class="hot" data-act="bd-auto" data-kind="classic">⭐ 정석 타순</button>${stats.map(([l, k]) => `<button data-act="bd-auto" data-kind="${k}">${l}</button>`).join('')}</div>
+    <div class="bd-bar"><button class="hot" data-act="bd-auto" data-kind="coach">🤖 AI 감독 추천</button><button class="hot" data-act="bd-auto" data-kind="random">🎲 랜덤</button><button class="hot" data-act="bd-auto" data-kind="classic">⭐ 정석 타순</button>${stats.map(([l, k]) => `<button data-act="bd-auto" data-kind="${k}">${l}</button>`).join('')}</div>
     <div class="sub" style="font-size:12px;font-weight:700;margin:4px 0 2px;color:var(--mute)">조금만 바꾸기</div>
     <div class="bd-bar"><button data-act="bd-shuf-order">🔀 타순 섞기</button><button data-act="bd-shuf-pos">🔄 포지션 섞기</button><button data-act="bd-real">📋 시트 라인업 불러오기</button><button data-act="bd-clear">🧹 비우기</button></div>
     ${hint}
+    ${b.coach && b.coach.length ? `<div class="coach"><div class="h">🤖 감독의 한마디</div>${b.coach.map(l => `<div>${l}</div>`).join('')}</div>` : ''}
     <div class="field" role="group" aria-label="포지션 배치">${FIELD_SVG}${slotHtml}</div>${b.dh ? dh : ''}
     <h2>타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px"><h2 style="margin:0">후보 <span class="muted" style="font-size:13px">${cands.length}명</span></h2>
