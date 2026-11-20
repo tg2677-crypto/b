@@ -459,7 +459,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 AI감독 v14';
+const BUILD = '2026-11-20 지타위치·9인타순 v15';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
@@ -736,12 +736,13 @@ const POS_KEY = {
   '유격수':'SS','유격':'SS','SS':'SS',
   '좌익수':'LF','좌익':'LF','좌':'LF','LF':'LF',
   '중견수':'CF','중견':'CF','중':'CF','CF':'CF',
-  '우익수':'RF','우익':'RF','우':'RF','RF':'RF'
+  '우익수':'RF','우익':'RF','우':'RF','RF':'RF',
+  '지타':'DH','지명타자':'DH','DH':'DH'
 };
 // 야구장 그림(360 x 370) 위 포지션별 좌표
 const SPOT = {
   P:[180,230], C:[180,340], '1B':[284,248], '2B':[230,178], SS:[130,178], '3B':[76,248],
-  LF:[78,122], CF:[180,84], RF:[282,122]
+  LF:[78,122], CF:[180,84], RF:[282,122], DH:[78,326]
 };
 const FIELD_SVG = `<svg viewBox="0 0 360 370" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <path d="M180 300 L14 134 Q180 -96 346 134 Z" fill="#2F7A4E"/>
@@ -854,13 +855,16 @@ function initBuild(){
   const am = attendMap()[key] || {};
   const d = readDrafts()[key];
   state.build = { key, pool: Object.values(am).some(v => v === '참석') ? 'att' : 'all', slots: d ? d.slots : {}, order: d ? d.order : [], dh: d ? d.dh !== false : true, sel: null };
+  applyDhRule(state.build);
 }
 function saveDraft(){
   const b = state.build; if(!b) return;
   try{ const all = readDrafts(); all[b.key] = { slots: b.slots, order: b.order, dh: b.dh }; localStorage.setItem(DRAFT_KEY, JSON.stringify(all)); }catch(e){}
 }
 function slotOf(name){ const b = state.build; return Object.keys(b.slots).find(s => b.slots[s] === name) || ''; }
-function setSlots(slots, order){ const b = state.build; b.coach = null; b.slots = slots; const names = Object.values(slots); b.order = (order || b.order.filter(n => names.includes(n))).filter(n => names.includes(n)); names.forEach(n => { if(!b.order.includes(n)) b.order.push(n); }); b.sel = null; saveDraft(); }
+// 지타를 쓰면 투수는 타석에 서지 않아서 타순(9명)에서 빠져요
+function applyDhRule(b){ if(b.slots.DH && b.slots.P) b.order = b.order.filter(n => n !== b.slots.P); }
+function setSlots(slots, order){ const b = state.build; b.coach = null; b.slots = slots; const names = Object.values(slots); b.order = (order || b.order.filter(n => names.includes(n))).filter(n => names.includes(n)); names.forEach(n => { if(!b.order.includes(n)) b.order.push(n); }); applyDhRule(b); b.sel = null; saveDraft(); }
 function bdPlace(name, slot){
   const b = state.build, from = slotOf(name), slots = { ...b.slots }, other = slots[slot];
   if(from) delete slots[from];
@@ -892,7 +896,7 @@ function bdCoach(pool){
   need.filter(k => !slots[k]).forEach(k => { if(rest.length) slots[k] = rest.shift(); });
   if(dh && rest.length) slots.DH = rest.shift();
   // 4) 타순: 1번 출루율(+도루), 3번 OPS 최고, 4번 장타율, 2번 다음 OPS, 나머지 OPS순
-  const left = chosen.slice(), take = fn => { left.sort((a, c) => fn(c) - fn(a)); return left.shift(); };
+  const left = chosen.filter(x => !(slots.DH && slots.P && x === slots.P)), take = fn => { left.sort((a, c) => fn(c) - fn(a)); return left.shift(); };
   const o1 = take(x => stat(x, '출루율') + sb(x) * 0.004), o3 = take(val), o4 = take(x => stat(x, '장타율')), o2 = take(val);
   const order = [o1, o2, o3, o4].concat(left.sort((a, c) => val(c) - val(a))).filter(Boolean);
   setSlots(slots, order);
@@ -920,13 +924,15 @@ function bdAuto(kind){
   }
   const key = kind === 'classic' ? 'OPS' : kind;
   chosen = pool.slice().sort((a, c) => stat(c, key) - stat(a, key)).slice(0, n);
-  order = chosen.slice();
+  const asg = autoAssign(chosen);
+  const batters = asg.DH && asg.P ? chosen.filter(x => x !== asg.P) : chosen;
+  order = batters.slice();
   if(kind === 'classic'){
-    const left = chosen.slice(), pick = (k) => { left.sort((a, c) => stat(c, k) - stat(a, k)); return left.shift(); };
+    const left = batters.slice(), pick = (k) => { left.sort((a, c) => stat(c, k) - stat(a, k)); return left.shift(); };
     order = [pick('출루율'), pick('출루율'), pick('OPS'), pick('장타율')].filter(Boolean);
     left.sort((a, c) => stat(c, 'OPS') - stat(a, 'OPS')); order = order.concat(left);
   }
-  setSlots(autoAssign(chosen), order);
+  setSlots(asg, order);
 }
 function bdShuffleOrder(){ const b = state.build; if(b.order.length < 2) return; b.order = shuffle(b.order); b.sel = null; saveDraft(); }
 function bdShufflePos(){
@@ -941,10 +947,17 @@ function bdLoadReal(){
   if(slots.DH) b.dh = true;
   setSlots(slots, order);
 }
+function bdRows(order, slots){
+  const lab = n => SLOT_LABEL[Object.keys(slots).find(k => slots[k] === n)] || '';
+  const r = order.map((n, i) => ({ order: i + 1, name: n, pos: lab(n) }));
+  if(slots.DH && slots.P && !order.includes(slots.P)) r.push({ order: '-', name: slots.P, pos: '투수' });
+  return r;
+}
 function bdText(){
   const b = state.build, g = gamesOf().find(x => keyOf(x._d) === b.key);
   const head = g ? `${CONFIG.TEAM_NAME} vs ${g['상대팀']}${(g['선후공'] || '').trim() ? ' (' + g['선후공'].trim() + ')' : ''} · ${fmtDate(g._d)} ${g['시간'] || ''}` : `${CONFIG.TEAM_NAME} 라인업`;
   const lines = b.order.map((n, i) => `${i + 1}. ${n} (${SLOT_LABEL[slotOf(n)] || '-'})`);
+  if(b.slots.DH && b.slots.P && !b.order.includes(b.slots.P)) lines.push(`투수: ${b.slots.P} (지타 사용, 타순 제외)`);
   const cand = poolNames(b.key, b.pool).filter(n => !slotOf(n));
   return head + '\n' + lines.join('\n') + (cand.length ? '\n후보: ' + cand.join(', ') : '');
 }
@@ -979,7 +992,7 @@ function applyPending(){
   } else state.pendingLineup = null;
 }
 function showSaved(key, order, slots){
-  const rows = order.map((n, i) => ({ '날짜': key, '타순': String(i + 1), '이름': n, '포지션': SLOT_LABEL[Object.keys(slots).find(k => slots[k] === n)] || '', '비고': '' }));
+  const rows = bdRows(order, slots).map(r => ({ '날짜': key, '타순': String(r.order), '이름': r.name, '포지션': r.pos, '비고': '' }));
   state.pendingLineup = { key, rows, ts: Date.now() };
   applyPending();
   state.lineupKey = key; state.luMode = 'view'; writeCache(state.data);
@@ -996,7 +1009,7 @@ function bdAsk(){
 }
 async function bdSave(){
   const b = state.build, key = b.key, snapOrder = b.order.slice(), snapSlots = { ...b.slots };
-  const rows = b.order.map((n, i) => ({ order: i + 1, name: n, pos: SLOT_LABEL[slotOf(n)] || '' }));
+  const rows = bdRows(b.order, b.slots);
   const body = JSON.stringify({ action: 'lineup', date: key, rows, password: state.pw });
   toast('저장 중…', 10000);
   const verify = async () => {
@@ -1039,15 +1052,11 @@ function viewBuilder(){
   const sel = b.sel;
   const hint = sel ? `<div class="bd-hint"><b>${esc(sel.name)}</b> 선택됨 — ${sel.from ? '바꿀 포지션을 누르거나 ' : '놓을 포지션을 누르세요. '}${sel.from ? '<button class="bd-btn" data-act="bd-pull">후보로 보내기</button>' : ''}</div>`
     : `<div class="bd-hint">후보 이름을 <b>누르거나 꾹 눌러 끌어서</b> 포지션에 놓으세요. 배치된 선수끼리는 서로 자리를 바꿀 수 있어요.</div>`;
-  const slotHtml = SLOTS.map(k => {
+  const slotHtml = SLOTS.concat(b.dh ? ['DH'] : []).map(k => {
     const [x, y] = SPOT[k], n = b.slots[k], st = `left:${(x / 360 * 100).toFixed(2)}%;top:${(y / 370 * 100).toFixed(2)}%`;
     return n ? `<div class="bslot full ${sel && sel.name === n ? 'sel' : ''}" style="${st}" data-slot="${k}" data-act="bd-slot" data-drag="${esc(n)}" data-from="${k}"><small>${SLOT_LABEL[k]}</small>${esc(n)}</div>`
              : `<div class="bslot empty" style="${st}" data-slot="${k}" data-act="bd-slot">${SLOT_LABEL[k]}</div>`;
   }).join('');
-  const dhN = b.slots.DH;
-  const dh = `<div class="dhrow"><span class="muted" style="font-size:13px">지명타자</span>` + (dhN
-    ? `<div class="bslot full ${sel && sel.name === dhN ? 'sel' : ''}" data-slot="DH" data-act="bd-slot" data-drag="${esc(dhN)}" data-from="DH"><small>지타</small>${esc(dhN)}</div>`
-    : `<div class="bslot empty" data-slot="DH" data-act="bd-slot">지타</div>`) + `</div>`;
   const cands = poolNames(b.key, b.pool).filter(n => !slotOf(n)).sort((a, c) => (parseFloat(memberOf(a)['번호']) || 999) - (parseFloat(memberOf(c)['번호']) || 999));
   const candHtml = cands.length ? cands.map(n => `<div class="cand ${am[n] === '미정' ? 'maybe' : ''} ${sel && sel.name === n && !sel.from ? 'sel' : ''}" data-act="bd-cand" data-name="${esc(n)}" data-drag="${esc(n)}">${esc(n)}${am[n] === '미정' ? ' <small>미정</small>' : ''}<small>${statLine(n)}</small></div>`).join('')
     : `<span class="muted" style="font-size:13px;align-self:center">${poolNames(b.key, b.pool).length ? '모두 배치했어요 🎉' : '아직 참석 응답한 사람이 없어요. “전체 팀원”을 눌러 보세요.'}</span>`;
@@ -1065,8 +1074,8 @@ function viewBuilder(){
     <div class="bd-bar"><button data-act="bd-shuf-order">🔀 타순 섞기</button><button data-act="bd-shuf-pos">🔄 포지션 섞기</button><button data-act="bd-real">📋 시트 라인업 불러오기</button><button data-act="bd-clear">🧹 비우기</button></div>
     ${hint}
     ${b.coach && b.coach.length ? `<div class="coach"><div class="h">🤖 감독의 한마디</div>${b.coach.map(l => `<div>${l}</div>`).join('')}</div>` : ''}
-    <div class="field" role="group" aria-label="포지션 배치">${FIELD_SVG}${slotHtml}</div>${b.dh ? dh : ''}
-    <h2>타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}
+    <div class="field" role="group" aria-label="포지션 배치">${FIELD_SVG}${slotHtml}</div>
+    <h2>타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}${b.slots.DH && b.slots.P ? `<div class="bo" style="opacity:.75"><div class="no">투</div><div class="nm">${esc(b.slots.P)}<small>투수 · 지타 사용으로 타순에서 제외</small></div></div>` : ''}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px"><h2 style="margin:0">후보 <span class="muted" style="font-size:13px">${cands.length}명</span></h2>
       <div class="seg" style="margin:0;width:190px"><button data-act="bd-pool" data-pool="att" aria-pressed="${b.pool === 'att'}" style="padding:6px">참석자 ${attN}</button><button data-act="bd-pool" data-pool="all" aria-pressed="${b.pool === 'all'}" style="padding:6px">전체</button></div></div>
     <div class="cands" id="bd-pool">${candHtml}</div>
