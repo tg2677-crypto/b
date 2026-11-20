@@ -44,14 +44,14 @@ button{font:inherit;color:inherit}
 header{border-bottom:3px solid var(--crest,var(--amber))}
 .hd-brand{display:flex;align-items:center;gap:10px;min-width:0}
 .hd-logo{width:36px;height:36px;border-radius:50%;flex:none;background:#000;box-shadow:0 0 0 2px rgba(255,255,255,.22)}
-.hero{position:relative;overflow:hidden;margin:16px 0 0;border-radius:16px;padding:20px 18px;display:flex;align-items:center;gap:16px;color:#EAF1EC;
+.hero{position:relative;overflow:hidden;margin:12px 0 0;border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:12px;color:#EAF1EC;
   background:linear-gradient(135deg,#07130d 0%,var(--board) 45%,var(--hero2,#1F5A3A) 100%)}
-.hero::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.10),transparent 70%)}
-.hero .lg{width:84px;height:84px;border-radius:50%;flex:none;background:#000;box-shadow:0 0 0 3px rgba(255,255,255,.28),0 6px 18px rgba(0,0,0,.45);display:grid;place-items:center;font-size:42px;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-30px;top:-40px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.10),transparent 70%)}
+.hero .lg{width:46px;height:46px;border-radius:50%;flex:none;background:#000;box-shadow:0 0 0 3px rgba(255,255,255,.28),0 6px 18px rgba(0,0,0,.45);display:grid;place-items:center;font-size:24px;overflow:hidden}
 .hero .lg img{width:100%;height:100%;display:block}
-.hero .tn{font-size:24px;font-weight:900;letter-spacing:-.02em;line-height:1.15}
-.hero .tg{margin-top:4px;font-size:12px;letter-spacing:.06em;font-weight:700;color:var(--amber);text-transform:uppercase}
-.hero .ds{margin-top:6px;font-size:13px;color:#BFD0C5}
+.hero .tn{font-size:18px;font-weight:900;letter-spacing:-.02em;line-height:1.15}
+.hero .tg{margin-top:1px;font-size:11px;display:inline;letter-spacing:.06em;font-weight:700;color:var(--amber);text-transform:uppercase}
+.hero .ds{margin:0 0 0 6px;font-size:11px;color:#BFD0C5;display:inline}
 
 .wx{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.14);font-size:14px;color:#DDE8E0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .wx .ic{font-size:30px;line-height:1}
@@ -390,7 +390,8 @@ const CONFIG = {
   DESC: '경기 안산시',
   TABS: { members: '팀원', schedule: '일정', lineup: '라인업' },
   REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
-  VOTE_TAB: 'MVP투표',     // MVP 투표가 저장되는 탭 (Apps Script가 자동으로 만들어요)
+  VOTE_TAB: 'MVP투표',
+  MVP_DAYS: 7,              // 경기 후 며칠까지 MVP 투표를 받을지     // MVP 투표가 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_TAB: '참석',      // 참석 응답이 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_URL: 'https://script.google.com/macros/s/AKfycbywqQs0U3Erp3VGG0f17SklgH46yRtWcDt_sHgoakzYtDUsFy3_iZ0cMh16VnkUtsSJCA/exec'  // 참석 체크용 Apps Script 웹 앱 주소
 };
@@ -561,7 +562,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 다듬기 v31';
+const BUILD = '2026-11-20 배너축소·MVP마감·포지션 v32';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -856,6 +857,13 @@ function mvpBlock(g){
   const key = keyOf(g._d);
   const cand = [...new Set(byDate('boxBat', key).filter(usRow).concat(byDate('boxPit', key).filter(usRow)).map(r => r['이름']).filter(Boolean))];
   if(cand.length < 2 || !CONFIG.ATTEND_URL) return '';
+  const closed = (today0() - g._d) / DAY > CONFIG.MVP_DAYS;
+  if(closed){
+    const vm0 = votesOf(key), c0 = {}; Object.values(vm0).forEach(p => c0[p] = (c0[p] || 0) + 1);
+    const mx0 = Math.max(0, ...Object.values(c0)); if(!mx0) return '';
+    const tops = Object.keys(c0).filter(p => c0[p] === mx0);
+    return `<div class="mvp"><div class="mvp-fold" style="cursor:default"><span>🏅 MVP <b>👑 ${tops.map(esc).join(', ')}</b></span><span>${mx0}표 · 투표 마감</span></div></div>`;
+  }
   const vm = votesOf(key), cnt = {}; Object.values(vm).forEach(p => cnt[p] = (cnt[p] || 0) + 1);
   const total = Object.keys(vm).length, mx = Math.max(0, ...cand.map(n => cnt[n] || 0));
   const me = (state.data.members.map(m => m['이름']).includes(state.me)) ? state.me : '', mine = me ? vm[me] : '';
@@ -871,6 +879,7 @@ function mvpBlock(g){
 async function castVote(date, pick){
   const me = state.me; if(!me){ toast('위에 내 이름을 먼저 입력해 주세요'); return; }
   if(me === pick){ toast('나 자신에게는 투표할 수 없어요 😄'); return; }
+  if((today0() - parseDate(date)) / DAY > CONFIG.MVP_DAYS){ toast('투표가 마감된 경기예요'); return; }
   const mineNow = votesOf(date)[me];
   if(mineNow === pick){ toast('이미 이 선수에게 투표했어요'); return; }
   state.data.votes = (state.data.votes || []).filter(v => !(dkey(v) === date && String(v['투표자']).trim() === me)).concat({ '날짜': date, '투표자': me, '후보': pick });
@@ -1270,6 +1279,8 @@ function prefSlots(n){
   Object.entries(POS_KEY).forEach(([k, v]) => { if(t.toUpperCase().includes(k.toUpperCase())) set.add(v); });
   if(/외야/.test(t)) ['LF','CF','RF'].forEach(x => set.add(x));
   if(/내야/.test(t)) ['1B','2B','3B','SS'].forEach(x => set.add(x));
+  // 박스스코어에서 실제로 뛴 포지션도 가능 포지션으로 봐요
+  ((state.data.rec && state.data.rec.boxBat) || []).forEach(r => { if(r['이름'] !== n || !usRow(r)) return; const k = POS_KEY[String(r['포지션'] || '').trim()] || POS_KEY[String(r['포지션'] || '').trim().toUpperCase()]; if(k && k !== 'DH') set.add(k); });
   return set;
 }
 function autoAssign(names){
@@ -1633,7 +1644,7 @@ function render(){
   const notice = state.demo ? `<div class="notice">샘플 데이터예요. 파일 위쪽 CONFIG의 SHEET_ID에 시트 ID를 넣으면 우리 팀 시트 내용으로 바뀌어요.</div>`
     : state.offline ? `<div class="notice">최신 내용을 불러오지 못해 마지막으로 저장된 내용을 보여주고 있어요.</div>` : '';
   const body = state.tab === 'schedule' ? viewSchedule() : state.tab === 'lineup' ? viewLineup() : state.tab === 'record' ? viewRecord() : viewMembers();
-  const hero = state.tab === 'schedule' ? `<div class="hero"><div class="lg">${CONFIG.LOGO ? `<img src="${CONFIG.LOGO}" alt="${esc(CONFIG.TEAM_NAME)} 로고">` : '⚾'}</div><div><div class="tn">${esc(CONFIG.TEAM_NAME)}</div>${CONFIG.TAGLINE ? `<div class="tg">${esc(CONFIG.TAGLINE)}</div>` : ''}${CONFIG.DESC ? `<div class="ds">${esc(CONFIG.DESC)}</div>` : ''}</div></div>` : '';
+  const hero = state.tab === 'schedule' ? `<div class="hero"><div class="lg">${CONFIG.LOGO ? `<img src="${CONFIG.LOGO}" alt="${esc(CONFIG.TEAM_NAME)} 로고">` : '⚾'}</div><div><div class="tn">${esc(CONFIG.TEAM_NAME)}</div>${CONFIG.TAGLINE || CONFIG.DESC ? `<div>${CONFIG.TAGLINE ? `<span class="tg">${esc(CONFIG.TAGLINE)}</span>` : ''}${CONFIG.DESC ? `<span class="ds">${esc(CONFIG.DESC)}</span>` : ''}</div>` : ''}</div></div>` : '';
   app.innerHTML = notice + hero + body;
   if(state.tab === 'schedule') wxInit();
 }
