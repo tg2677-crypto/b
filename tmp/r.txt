@@ -1,0 +1,303 @@
+/**
+ * 참석 체크 + 라인업 저장용 Apps Script (가락불스·카리스 시트에 똑같이 붙여넣기)
+ * 사용법: 시트 → 확장 프로그램 → Apps Script → 이 코드 전체 붙여넣기 → 저장 → 배포
+ * 배포: 새 배포 → 유형 "웹 앱" → 실행 사용자 "나" → 액세스 권한 "모든 사용자" → 배포 → 웹 앱 URL 복사
+ */
+// ★ 라인업 만들기·수정 비밀번호 (꼭 원하는 값으로 바꿔 주세요. 바꾼 뒤 다시 배포해야 적용돼요)
+const LINEUP_PASSWORD = '2677';
+
+const SHEET_NAME = '참석';
+const HEADERS = ['날짜', '이름', '응답', '기록시각'];
+const ANSWERS = ['참석', '불참', '미정'];
+
+function getAttendSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_NAME);
+    sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold');
+    sh.getRange('A:D').setNumberFormat('@');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const d = JSON.parse(e.postData.contents);
+    if (d.action === 'verify') {
+      return String(d.password || '') === LINEUP_PASSWORD ? out_({ ok: true }) : out_({ ok: false, code: 'auth', error: '비밀번호가 틀렸어요' });
+    }
+    if (d.action === 'lineup') {
+      if (String(d.password || '') !== LINEUP_PASSWORD) return out_({ ok: false, code: 'auth', error: '비밀번호가 틀렸어요' });
+      return saveLineup_(d);
+    }
+    if (d.action === 'vote') return saveVote_(d);
+    if (d.action === 'predict') return savePredict_(d);
+    const date = String(d.date || '').trim();
+    const name = String(d.name || '').trim();
+    const answer = String(d.answer || '').trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return out_({ ok: false, error: '날짜 형식이 올바르지 않아요' });
+    if (ANSWERS.indexOf(answer) < 0) return out_({ ok: false, error: '응답 값이 올바르지 않아요' });
+
+    // 팀원 탭에 있는 이름만 받아요
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const mem = ss.getSheetByName('팀원');
+    const names = mem && mem.getLastRow() > 1
+      ? mem.getRange(2, 1, mem.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
+      : [];
+    if (names.indexOf(name) < 0) return out_({ ok: false, error: '팀원 명단에 없는 이름이에요' });
+
+    const sh = getAttendSheet_();
+    const last = sh.getLastRow();
+    let row = 0;
+    if (last > 1) {
+      const vals = sh.getRange(2, 1, last - 1, 2).getValues();
+      for (let i = 0; i < vals.length; i++) {
+        if (String(vals[i][0]).trim() === date && String(vals[i][1]).trim() === name) { row = i + 2; break; }
+      }
+    }
+    if (!row) row = last + 1;
+    const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+    sh.getRange(row, 1, 1, 4).setNumberFormat('@').setValues([[date, name, answer, now]]);
+    return out_({ ok: true });
+  } catch (err) {
+    return out_({ ok: false, error: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function doGet() { return out_({ ok: true, msg: '참석 체크 주소가 정상 동작 중이에요' }); }
+
+function out_(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * 라인업 저장: 페이지의 "시트에 저장" 버튼이 호출해요.
+ * '라인업' 탭에서 같은 날짜의 줄을 지우고 새 라인업(날짜/타순/이름/포지션/비고)을 넣어요.
+ */
+function saveLineup_(d) {
+  const date = String(d.date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return out_({ ok: false, error: '날짜 형식이 올바르지 않아요' });
+  const rows = (d.rows || []).slice(0, 30);
+  if (!rows.length) return out_({ ok: false, error: '저장할 라인업이 비어 있어요' });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mem = ss.getSheetByName('팀원');
+  const names = mem && mem.getLastRow() > 1
+    ? mem.getRange(2, 1, mem.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
+    : [];
+  const out = [];
+  for (let i = 0; i < rows.length; i++) {
+    const nm = String(rows[i].name || '').trim();
+    if (names.indexOf(nm) < 0) return out_({ ok: false, error: '팀원 명단에 없는 이름이 있어요: ' + nm });
+    const ord = String(rows[i].order).trim() === '-' ? '-' : (Number(rows[i].order) || (i + 1));   // '-' = 타순 없음(지타 사용 시 투수)
+    out.push([date, ord, nm, String(rows[i].pos || '').trim(), '']);
+  }
+  let sh = ss.getSheetByName('라인업');
+  if (!sh) {
+    sh = ss.insertSheet('라인업');
+    sh.getRange(1, 1, 1, 5).setValues([['날짜', '타순', '이름', '포지션', '비고']]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  // 헤더 위치를 찾아서 열 순서가 달라도 맞게 넣어요
+  const head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 5)).getValues()[0].map(function (h) { return String(h).trim(); });
+  const col = function (n) { return head.indexOf(n); };
+  const iD = col('날짜'), iO = col('타순'), iN = col('이름'), iP = col('포지션');
+  if (iD < 0 || iO < 0 || iN < 0 || iP < 0) return out_({ ok: false, error: "'라인업' 탭 첫 줄에 날짜/타순/이름/포지션 제목이 있어야 해요" });
+  const tz = ss.getSpreadsheetTimeZone();
+  // 같은 날짜의 기존 줄 삭제 (아래에서 위로)
+  const last = sh.getLastRow();
+  if (last > 1) {
+    const vals = sh.getRange(2, iD + 1, last - 1, 1).getValues();
+    for (let r = vals.length - 1; r >= 0; r--) {
+      const v = vals[r][0];
+      const s = v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v).trim();
+      if (s === date) sh.deleteRow(r + 2);
+    }
+  }
+  const start = sh.getLastRow() + 1;
+  const width = head.length;
+  const block = out.map(function (o) {
+    const row = new Array(width).fill('');
+    row[iD] = o[0]; row[iO] = o[1]; row[iN] = o[2]; row[iP] = o[3];
+    return row;
+  });
+  sh.getRange(start, iD + 1, block.length, 1).setNumberFormat('@');
+  sh.getRange(start, 1, block.length, width).setValues(block);
+  return out_({ ok: true, saved: block.length });
+}
+
+/**
+ * ───────── 경기 기록 미반영 알림 (무료 · 토큰 사용 없음) ─────────
+ * 매일 아침 9시에 '일정' 탭을 보고, 경기 날짜가 지났는데 '결과'가 비어 있는 경기가 있으면
+ * 시트 주인에게 메일로 알려줘요. 메일을 받으면 Claude에게 "기록 가져와"라고 말하면 돼요.
+ *
+ * 처음 한 번만: 편집기 위쪽 함수 선택에서 setupDailyCheck 를 고르고 ▶ 실행 → 권한 허용
+ * (끄고 싶으면 removeDailyCheck 실행)
+ */
+function setupDailyCheck() {
+  removeDailyCheck();
+  ScriptApp.newTrigger('checkUnrecordedGames').timeBased().atHour(9).everyDays(1).inTimezone('Asia/Seoul').create();
+  checkUnrecordedGames();   // 설정하자마자 한 번 확인해요
+}
+function removeDailyCheck() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'checkUnrecordedGames') ScriptApp.deleteTrigger(t);
+  });
+}
+function checkUnrecordedGames() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('일정');
+  if (!sh || sh.getLastRow() < 2) return;
+  const tz = 'Asia/Seoul';
+  const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+  const iD = head.indexOf('날짜'), iO = head.indexOf('상대팀'), iR = head.indexOf('결과');
+  if (iD < 0 || iO < 0 || iR < 0) return;
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues();
+  const props = PropertiesService.getScriptProperties();
+  const missing = [];
+  rows.forEach(function (r) {
+    const v = r[iD];
+    const d = v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d >= today) return;         // 아직 안 한 경기는 제외
+    if (String(r[iR]).trim() !== '') return;                           // 결과가 있으면 반영된 경기
+    const key = 'notified_' + d;
+    const last = Number(props.getProperty(key) || 0);
+    if (Date.now() - last < 3 * 86400000) return;                      // 같은 경기는 3일에 한 번만 알려요
+    missing.push({ d: d, opp: String(r[iO]).trim(), key: key });
+  });
+  if (!missing.length) return;
+  const to = Session.getEffectiveUser().getEmail();
+  const lines = missing.map(function (m) { return '· ' + m.d + ' vs ' + m.opp; }).join('\n');
+  MailApp.sendEmail(to, '[' + ss.getName() + '] 기록이 아직 반영되지 않은 경기 ' + missing.length + '개',
+    '경기는 끝났는데 일정 탭의 결과가 비어 있어요.\n\n' + lines +
+    '\n\n유니크플레이에 기록이 올라왔다면 Claude에게 "기록 가져와"라고 말해 주세요.');
+  missing.forEach(function (m) { props.setProperty(m.key, String(Date.now())); });
+}
+
+/**
+ * MVP 투표: 페이지의 투표 버튼이 호출해요. 'MVP투표' 탭에 (날짜, 투표자, 후보, 기록시각)으로 저장하고,
+ * 같은 사람이 같은 경기에 다시 투표하면 덮어써요.
+ */
+function saveVote_(d) {
+  const date = String(d.date || '').trim(), voter = String(d.voter || '').trim(), pick = String(d.pick || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return out_({ ok: false, error: '날짜 형식이 올바르지 않아요' });
+  if (voter === pick) return out_({ ok: false, error: '자기 자신에게는 투표할 수 없어요' });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mem = ss.getSheetByName('팀원');
+  const names = mem && mem.getLastRow() > 1
+    ? mem.getRange(2, 1, mem.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
+    : [];
+  if (names.indexOf(voter) < 0 || names.indexOf(pick) < 0) return out_({ ok: false, error: '팀원 명단에 없는 이름이에요' });
+  let sh = ss.getSheetByName('MVP투표');
+  if (!sh) {
+    sh = ss.insertSheet('MVP투표');
+    sh.getRange(1, 1, 1, 4).setValues([['날짜', '투표자', '후보', '기록시각']]).setFontWeight('bold');
+    sh.getRange('A:D').setNumberFormat('@');
+    sh.setFrozenRows(1);
+  }
+  const last = sh.getLastRow();
+  let row = 0;
+  if (last > 1) {
+    const vals = sh.getRange(2, 1, last - 1, 2).getValues();
+    for (let i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]).trim() === date && String(vals[i][1]).trim() === voter) { row = i + 2; break; }
+    }
+  }
+  if (!row) row = last + 1;
+  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+  sh.getRange(row, 1, 1, 4).setNumberFormat('@').setValues([[date, voter, pick, now]]);
+  return out_({ ok: true });
+}
+
+/**
+ * 승부 예측: '승부예측' 탭에 (날짜, 이름, 우리, 상대, 기록시각) 저장. 같은 사람이 다시 보내면 덮어써요.
+ * 일정 탭의 경기 시작 시각이 지나면 받지 않아요.
+ */
+function savePredict_(d) {
+  const date = String(d.date || '').trim(), name = String(d.name || '').trim();
+  const us = Number(d.us), them = Number(d.them);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return out_({ ok: false, error: '날짜 형식이 올바르지 않아요' });
+  if (!(us >= 0 && us <= 99 && them >= 0 && them <= 99) || us % 1 || them % 1) return out_({ ok: false, error: '점수가 올바르지 않아요' });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mem = ss.getSheetByName('팀원');
+  const names = mem && mem.getLastRow() > 1
+    ? mem.getRange(2, 1, mem.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
+    : [];
+  if (names.indexOf(name) < 0) return out_({ ok: false, error: '팀원 명단에 없는 이름이에요' });
+  // 경기 시작 시각 확인
+  const sc = ss.getSheetByName('일정');
+  if (sc && sc.getLastRow() > 1) {
+    const head = sc.getRange(1, 1, 1, sc.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+    const iD = head.indexOf('날짜'), iT = head.indexOf('시간');
+    const rows = sc.getRange(2, 1, sc.getLastRow() - 1, head.length).getValues();
+    for (let i = 0; i < rows.length; i++) {
+      const v = rows[i][iD];
+      const ds = v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v).trim();
+      if (ds !== date) continue;
+      let hm = '00:00';
+      if (iT >= 0) { const t = rows[i][iT]; hm = t instanceof Date ? Utilities.formatDate(t, 'Asia/Seoul', 'HH:mm') : (String(t).match(/\d{1,2}:\d{2}/) || ['00:00'])[0]; }
+      const start = new Date(date + 'T' + (hm.length === 4 ? '0' + hm : hm) + ':00+09:00');
+      if (new Date() >= start) return out_({ ok: false, error: '경기가 시작돼서 예측이 마감됐어요' });
+    }
+  }
+  let sh = ss.getSheetByName('승부예측');
+  if (!sh) {
+    sh = ss.insertSheet('승부예측');
+    sh.getRange(1, 1, 1, 5).setValues([['날짜', '이름', '우리', '상대', '기록시각']]).setFontWeight('bold');
+    sh.getRange('A:B').setNumberFormat('@');
+    sh.setFrozenRows(1);
+  }
+  const last = sh.getLastRow();
+  let row = 0;
+  if (last > 1) {
+    const vals = sh.getRange(2, 1, last - 1, 2).getValues();
+    for (let i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]).trim() === date && String(vals[i][1]).trim() === name) { row = i + 2; break; }
+    }
+  }
+  if (!row) row = last + 1;
+  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+  sh.getRange(row, 1, 1, 2).setNumberFormat('@');
+  sh.getRange(row, 1, 1, 5).setValues([[date, name, us, them, now]]);
+  return out_({ ok: true });
+}
+
+
+/**
+ * 처음 한 번만: 필요한 탭과 제목 줄을 만들어요. (래틀러스 시트 초기 설정용)
+ */
+function setupTabs() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const T = {
+    '팀원': ['이름', '번호', '포지션', '투타', '비고', '사진'],
+    '일정': ['날짜', '시간', '상대팀', '장소', '선후공', '결과', '점수', '후기', '사진'],
+    '라인업': ['날짜', '타순', '이름', '포지션', '비고'],
+    '참석': ['날짜', '이름', '응답', '기록시각'],
+    'MVP투표': ['날짜', '투표자', '후보', '기록시각'],
+    '승부예측': ['날짜', '이름', '우리', '상대', '기록시각'],
+    '박스스코어': ['날짜', '상대팀', '팀', '구분', '순서', '포지션', '이름', '타수', '안타', '타점', '도루', '득점', '볼넷', '사구'],
+    '박스_투수': ['날짜', '상대팀', '팀', '이름', '결과', '이닝', '피안타', '실점', '자책', '4사구', '삼진'],
+    '이닝스코어': ['날짜', '상대팀', '선후공', '팀', '1회', '2회', '3회', '4회', '5회', '6회', '7회', 'R', 'H', 'E', 'B'],
+    '시즌_타자': ['이름', '소속구분', '타율', '팀게임', '선수게임', '타석', '타수', '총안타', '1루타', '2루타', '3루타', '홈런', '타점', '득점', '도루', '볼넷', '삼진', '출루율', '장타율', 'OPS'],
+    '시즌_투수': ['이름', 'ERA', '팀게임', '선수게임', '이닝', '승', '패', '세이브', '홀드', '삼진', '피안타', '피홈런', '실점', '볼넷', '사구', '승률', 'WHIP'],
+    '팀기록': ['항목', '값']
+  };
+  const first = ss.getSheets()[0];
+  Object.keys(T).forEach(function (name, i) {
+    let sh = ss.getSheetByName(name);
+    if (!sh) sh = (i === 0 && first.getLastRow() === 0) ? first.setName(name) : ss.insertSheet(name);
+    if (sh.getLastRow() === 0) {
+      sh.getRange(1, 1, 1, T[name].length).setValues([T[name]]).setFontWeight('bold');
+      sh.setFrozenRows(1);
+      if (T[name][0] === '날짜') sh.getRange('A:A').setNumberFormat('@');
+    }
+  });
+  return 'ok';
+}
