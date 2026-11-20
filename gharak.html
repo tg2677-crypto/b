@@ -459,7 +459,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 지타위치·9인타순 v15';
+const BUILD = '2026-11-20 타순표투수제외 v16';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
@@ -797,13 +797,13 @@ function viewLineupView(){
   const head = game ? `vs ${esc(game['상대팀'])}${batTag(game)} · ${fmtDate(game._d)}` : (sel === 'default' ? '기본 라인업' : fmtDate(parseDate(sel)));
   const f = fieldView(rows);
   return `<div class="chips" role="group" aria-label="경기 날짜">${chips}</div>
-    <div class="lineup-head">${head}</div>${f ? f + '<h2>타순표</h2>' : ''}` + rows.map(r => {
+    <div class="lineup-head">${head}</div>${f ? f + '<h2>타순표</h2>' : ''}` + rows.filter(r => String(r['타순']).trim() !== '-').map(r => {
       const m = members.find(x => x['이름'] === r['이름']);
       const sub = [m && m['번호'] ? `#${esc(m['번호'])}` : '', esc(r['비고'])].filter(Boolean).join(' · ');
       return `<div class="order"><div class="no">${esc(r['타순'])}</div>
         <div class="who"><div class="nm">${esc(r['이름'])}${am[r['이름']] === '불참' ? '<span class="absent">불참</span>' : am[r['이름']] === '미정' ? '<span class="absent m">미정</span>' : ''}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
         ${r['포지션'] ? `<div class="pos">${esc(r['포지션'])}</div>` : ''}</div>`;
-    }).join('');
+    }).join('') + (() => { const p = rows.filter(r => String(r['타순']).trim() === '-'); return p.length ? `<div class="muted" style="font-size:13px;margin:6px 2px">투수: ${p.map(r => esc(r['이름'])).join(', ')} (지타 사용 · 타순 제외)</div>` : ''; })();
 }
 
 /* ---------- 라인업 만들기 ---------- */
