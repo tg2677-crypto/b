@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
+  --crest:#C8262F; --hero2:#1F5A3A;
   --bg:#F3F6F1; --surface:#FFFFFF; --ink:#14201A; --mute:#5E6E64; --line:#DCE4DB;
   --board:#0E2418; --amber:#F5B82E;
   --win:#1F7A4D; --loss:#B3412E; --draw:#6B7A72;
@@ -487,7 +488,7 @@ const CONFIG = {
   REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
   VOTE_TAB: 'MVP투표',
   MVP_DAYS: 7,
-  PREDICT: false,            // 승부 예측 사용 (Apps Script에 predict 기능이 있어야 해요)
+  PREDICT: true,            // 승부 예측 사용 (Apps Script에 predict 기능이 있어야 해요)
   PREDICT_TAB: '승부예측',              // 경기 후 며칠까지 MVP 투표를 받을지     // MVP 투표가 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_TAB: '참석',      // 참석 응답이 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_URL: 'https://script.google.com/macros/s/AKfycbyDX7E_BbpQkZCZIQ98738nVH-wOL1CGgumLafjXTN6UOd38VMJvnVIfSQKnYjUTJOuZA/exec'  // 참석 체크용 Apps Script 웹 앱 주소
