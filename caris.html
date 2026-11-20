@@ -454,7 +454,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 라인업메이커 v8';
+const BUILD = '2026-11-20 라인업저장 v9';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
@@ -903,6 +903,43 @@ function bdText(){
   const cand = poolNames(b.key, b.pool).filter(n => !slotOf(n));
   return head + '\n' + lines.join('\n') + (cand.length ? '\n후보: ' + cand.join(', ') : '');
 }
+function bdAsk(){
+  const b = state.build;
+  if(!b.order.length){ toast('먼저 라인업을 만들어 주세요'); return; }
+  if(!CONFIG.ATTEND_URL){ toast('저장 주소가 설정되지 않았어요'); return; }
+  state.pending = { type: 'lineup' };
+  const d = parseDate(b.key);
+  document.getElementById('confirmText').innerHTML = `<strong>${fmtDate(d)}</strong> 경기 라인업 <strong>${b.order.length}명</strong>을<br>시트에 저장할까요?<br><span class="muted" style="font-size:13px">같은 날짜의 기존 라인업은 바뀌어요.</span>`;
+  const box = document.getElementById('confirm'); box.classList.add('on'); box.querySelector('.cancel').focus();
+}
+async function bdSave(){
+  const b = state.build, key = b.key;
+  const rows = b.order.map((n, i) => ({ order: i + 1, name: n, pos: SLOT_LABEL[slotOf(n)] || '' }));
+  const body = JSON.stringify({ action: 'lineup', date: key, rows });
+  toast('저장 중…', 10000);
+  const verify = async () => {
+    for(let i = 0; i < 4; i++){
+      await new Promise(r => setTimeout(r, 2000));
+      const fresh = await loadTab(CONFIG.TABS.lineup).catch(() => null);
+      if(fresh && fresh.filter(r => { const d = parseDate(r['날짜']); return d && keyOf(d) === key; }).length === rows.length){ state.data.lineup = fresh; writeCache(state.data); return true; }
+    }
+    return false;
+  };
+  try{
+    let ok = false;
+    try{
+      const res = await fetch(CONFIG.ATTEND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body });
+      const j = await res.json(); if(!j.ok) throw new Error(j.error || '저장 실패'); ok = true;
+    }catch(e){
+      if(!(e instanceof TypeError)) throw e;
+      await fetch(CONFIG.ATTEND_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body });
+      ok = await verify();
+      if(!ok){ toast('저장이 확인되지 않았어요. 잠시 뒤 “라인업 보기”에서 확인해 주세요', 5000); return; }
+    }
+    toast('시트에 저장했어요. “라인업 보기”에서 확인하세요', 3500);
+    load();
+  }catch(e){ toast('저장하지 못했어요: ' + (e.message || e), 5000); }
+}
 async function bdCopy(){
   const t = bdText();
   try{ await navigator.clipboard.writeText(t); toast('복사했어요. 단톡방에 붙여넣기 하세요'); }
@@ -948,8 +985,8 @@ function viewBuilder(){
       <div class="seg" style="margin:0;width:190px"><button data-act="bd-pool" data-pool="att" aria-pressed="${b.pool === 'att'}" style="padding:6px">참석자 ${attN}</button><button data-act="bd-pool" data-pool="all" aria-pressed="${b.pool === 'all'}" style="padding:6px">전체</button></div></div>
     <div class="cands" id="bd-pool">${candHtml}</div>
     <h2>타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}
-    <div class="bd-bar" style="margin-top:10px"><button class="hot" data-act="bd-copy">📤 복사하기 (단톡방용)</button></div>
-    <p class="muted" style="font-size:12px">만든 라인업은 이 기기에 자동 저장돼요. 팀원 모두에게 보이게 하려면 복사해서 공유하거나, 시트 “라인업” 탭에 적어 주세요.</p>`;
+    <div class="bd-bar" style="margin-top:10px"><button class="hot" data-act="bd-save">☁️ 시트에 저장</button><button class="hot" data-act="bd-copy">📤 복사하기 (단톡방용)</button></div>
+    <p class="muted" style="font-size:12px">작업 중인 라인업은 이 기기에 자동 저장돼요. “시트에 저장”을 누르면 팀원 모두의 “라인업 보기”에 반영돼요.</p>`;
 }
 function viewLineup(){
   const seg = `<div class="seg"><button data-act="lu-mode" data-mode="view" aria-pressed="${state.luMode === 'view'}">📋 라인업 보기</button><button data-act="lu-mode" data-mode="build" aria-pressed="${state.luMode === 'build'}">🛠 라인업 만들기</button></div>`;
@@ -1078,6 +1115,7 @@ document.addEventListener('click', e => {
     else if(act === 'bd-clear'){ setSlots({}, []); }
     else if(act === 'bd-up' || act === 'bd-down'){ const i = +el.dataset.i, j = act === 'bd-up' ? i - 1 : i + 1; if(j >= 0 && j < b.order.length){ [b.order[i], b.order[j]] = [b.order[j], b.order[i]]; saveDraft(); } }
     else if(act === 'bd-copy'){ bdCopy(); return; }
+    else if(act === 'bd-save'){ bdAsk(); return; }
     rerenderKeepScroll();
   }
   else if(act === 'more'){ state.more[el.dataset.k] = !state.more[el.dataset.k]; render(); }
@@ -1092,7 +1130,7 @@ document.addEventListener('click', e => {
   else if(act === 'close-photo'){ document.getElementById('lightbox').classList.remove('on'); }
   else if(act === 'rsvp'){ askRsvp(el.dataset.date, el.dataset.ans); }
   else if(act === 'set-me'){ setMe(el.parentElement.querySelector('input').value); }
-  else if(act === 'confirm-ok'){ const p = state.pending; closeConfirm(); if(p) rsvp(p.date, p.ans); }
+  else if(act === 'confirm-ok'){ const p = state.pending; closeConfirm(); if(p) (p.type === 'lineup' ? bdSave() : rsvp(p.date, p.ans)); }
   else if(act === 'confirm-cancel'){ closeConfirm(); }
   else if(act === 'change-me'){ state.me = ''; try{ localStorage.removeItem(ME_KEY); }catch(e){} render(); }
 });
