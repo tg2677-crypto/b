@@ -159,6 +159,33 @@ table.st tr.unq td{border-top:2px dashed var(--mute)}
 .predres{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:13px}
 .predres b{color:var(--chip-on)}
 
+/* KBO 중계 스타일 라인업 */
+.lu-wrap{display:grid;grid-template-columns:53% 1fr;gap:6px;align-items:start;margin-top:4px}
+@media(min-width:560px){.lu-wrap{grid-template-columns:52% 1fr;gap:12px}}
+.lu-wrap .field{margin:0}
+.lu-wrap .fp{flex-direction:row;gap:0}
+.lu-wrap .fo{min-width:13px;height:13px;font-size:8px;padding:0 2px;border-radius:4px 0 0 4px}
+.lu-wrap .fn{font-size:9px;line-height:13px;padding:0 3px;border-radius:0 4px 4px 0;letter-spacing:-.03em}
+@media(min-width:560px){.lu-wrap .fp{flex-direction:column;gap:2px}.lu-wrap .fo{min-width:20px;height:20px;font-size:11px;border-radius:999px}.lu-wrap .fn{font-size:11px;line-height:1.4;padding:1px 6px;border-radius:6px}}
+.kbo{background:var(--board);color:#EAF1EC;border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums}
+.kbo .kh{display:flex;justify-content:space-between;align-items:center;padding:7px 9px;background:linear-gradient(90deg,var(--crest,#C8262F),#7a1419);font-size:11px;font-weight:900;letter-spacing:.02em}
+.kbo .kh span{font-weight:500;opacity:.85}
+.kbo .kr{display:grid;grid-template-columns:14px 24px 1fr auto;align-items:center;gap:3px;padding:0 7px;height:27px;line-height:1.2;overflow:hidden;border-top:1px solid rgba(255,255,255,.07);font-size:12px}
+.kbo .kr:nth-child(even){background:rgba(255,255,255,.04)}
+.kbo .kr .o{color:var(--amber);font-weight:900;font-size:13px;text-align:center}
+.kbo .kr .p{font-size:10px;color:#9DB5A6;text-align:center}
+.kbo .kr .n{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.kbo .kr .n small{font-size:9px;font-weight:700;margin-left:3px;padding:0 3px;border-radius:3px;background:var(--loss);color:#fff;vertical-align:1px}
+.kbo .kr .n small.m{background:var(--draw)}
+.kbo .kr .a{font-size:11px;display:flex;align-items:center;gap:1px;color:#C9D8CE;text-align:right;white-space:nowrap}
+.kbo .kr.mine,.kbo .kr.mine:nth-child(even){background:rgba(245,184,46,.22);box-shadow:inset 3px 0 0 var(--amber)}
+.kbo .kr.mine .n{color:#fff}
+.spcard{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.spcard .t{font-size:11px;font-weight:900;color:var(--surface);background:var(--crest,#C8262F);padding:3px 7px;border-radius:6px;white-space:nowrap}
+.spcard .nm{font-weight:900;font-size:16px}
+.spcard .st{font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.lu-legend{font-size:11px;color:var(--mute);margin-top:6px}
+
 /* 헤더 */
 header{
   position:sticky; top:0; z-index:5; background:var(--board); color:#EAF1EC;
@@ -588,7 +615,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 승부 예측 v34';
+const BUILD = '2026-11-20 KBO 타순표 v35';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1395,14 +1422,20 @@ function viewLineupView(){
   }).join('');
   const head = game ? `vs ${esc(game['상대팀'])}${batTag(game)} · ${fmtDate(game._d)}` : (sel === 'default' ? '기본 라인업' : fmtDate(parseDate(sel)));
   const f = fieldView(rows);
+  const bats = rows.filter(r => String(r['타순']).trim() !== '-' && /^\d/.test(String(r['타순']).trim()));
+  const posShort = raw => { const k = POS_KEY[String(raw || '').trim().toUpperCase()] || POS_KEY[String(raw || '').trim()]; return k ? (SLOT_LABEL[k] || k) : esc(raw || ''); };
+  const form = n => { const g = recOf('boxBat').filter(r => r['이름'] === n && usRow(r) && dkey(r) && N(r['타수']) + N(r['볼넷']) > 0).sort((a, b) => dkey(b).localeCompare(dkey(a))).slice(0, 3); if(g.length < 2) return ''; const h = g.reduce((a, r) => a + N(r['안타']), 0), ab = g.reduce((a, r) => a + N(r['타수']), 0); return h >= 4 || (ab && h / ab >= .5) ? '🔥' : h === 0 && ab >= 4 ? '🧊' : ''; };
+  const avg = n => { const r = batRowOf(n); return r && N(r['타석']) > 0 ? fmtStat('타율', r['타율']) : '-'; };
+  const tag = n => am[n] === '불참' ? '<small>불참</small>' : am[n] === '미정' ? '<small class="m">미정</small>' : '';
+  const board = `<div class="kbo" role="table" aria-label="타순표"><div class="kh">${esc(CONFIG.TEAM_NAME)} 선발 라인업<span>타율</span></div>${bats.map(r => `<div class="kr ${r['이름'] === state.me ? 'mine' : ''}" role="row"><span class="o">${esc(r['타순'])}</span><span class="p">${posShort(r['포지션'])}</span><span class="n">${esc(r['이름'])}${tag(r['이름'])}</span><span class="a">${form(r['이름'])}${avg(r['이름'])}</span></div>`).join('')}</div>`;
+  const pRow = rows.find(r => (POS_KEY[String(r['포지션'] || '').trim()] || POS_KEY[String(r['포지션'] || '').trim().toUpperCase()]) === 'P');
+  let sp = '';
+  if(pRow){ const p = recOf('seasonPit').find(x => x['이름'] === pRow['이름']); sp = `<div class="spcard"><span class="t">선발투수</span><div><div class="nm">${esc(pRow['이름'])}${tag(pRow['이름'])}</div><div class="st">${p && N(p['선수게임']) > 0 ? `평균자책 ${fmtStat('ERA', p['ERA'])} · ${esc(p['이닝'])}이닝 · ${esc(p['승'])}승 ${esc(p['패'])}패 · 삼진 ${esc(p['삼진'])}` : '올 시즌 투구 기록 없음'}</div></div></div>`; }
+  const dh = rows.some(r => String(r['타순']).trim() === '-');
   return `<div class="chips" role="group" aria-label="경기 날짜">${chips}</div>
-    <div class="lineup-head">${head}</div>${f ? f + '<h2>타순표</h2>' : ''}` + rows.filter(r => String(r['타순']).trim() !== '-').map(r => {
-      const m = members.find(x => x['이름'] === r['이름']);
-      const sub = [m && m['번호'] ? `#${esc(m['번호'])}` : '', esc(r['비고'])].filter(Boolean).join(' · ');
-      return `<div class="order"><div class="no">${esc(r['타순'])}</div>
-        <div class="who"><div class="nm">${esc(r['이름'])}${am[r['이름']] === '불참' ? '<span class="absent">불참</span>' : am[r['이름']] === '미정' ? '<span class="absent m">미정</span>' : ''}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
-        ${r['포지션'] ? `<div class="pos">${esc(posShow(r['포지션']))}</div>` : ''}</div>`;
-    }).join('') + (() => { const p = rows.filter(r => String(r['타순']).trim() === '-'); return p.length ? `<div class="muted" style="font-size:13px;margin:6px 2px">선발투수: ${p.map(r => esc(r['이름'])).join(', ')} (지타 사용 · 타순 제외)</div>` : ''; })();
+    <div class="lineup-head">${head}</div>
+    ${f ? `<div class="lu-wrap">${f}${board}</div>` : board}${sp}
+    <div class="lu-legend">🔥 최근 3경기 타격감 좋음 · 🧊 최근 3경기 무안타${dh ? ' · 지명타자 사용 (투수 타순 제외)' : ''}</div>`;
 }
 
 /* ---------- 라인업 만들기 ---------- */
