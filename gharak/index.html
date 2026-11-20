@@ -456,7 +456,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 지타옵션·배치변경 v11';
+const BUILD = '2026-11-20 저장후자동반영 v12';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
@@ -489,7 +489,7 @@ async function load(){
       ...recKeys.map(k => loadTab(CONFIG.REC_TABS[k]).catch(() => []))
     ]);
     const rec = {}; recKeys.forEach((k, i) => rec[k] = recRows[i] || []);
-    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), rec}; state.loaded = true; state.offline = false; state.lastLoad = Date.now();
+    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), rec}; applyPending(); state.loaded = true; state.offline = false; state.lastLoad = Date.now();
     writeCache(state.data);
   }catch(e){
     if(state.loaded) state.offline = true;
@@ -927,6 +927,22 @@ async function bdCheckPw(pw){
     state.luMode = 'build'; toast('잠금을 풀었어요', 1500); render(); window.scrollTo(0, 0);
   }catch(e){ toast(e instanceof TypeError ? '확인하지 못했어요. 인터넷에 올린 주소에서 다시 시도해 주세요' : (e.message || '비밀번호가 틀렸어요'), 4000); }
 }
+// 저장 직후 시트 반영이 늦어도 화면에는 바로 보이게, 방금 저장한 라인업을 잠시 들고 있어요
+function applyPending(){
+  const p = state.pendingLineup; if(!p) return;
+  if(Date.now() - p.ts > 90000){ state.pendingLineup = null; return; }
+  const has = state.data.lineup.filter(r => { const d = parseDate(r['날짜']); return d && keyOf(d) === p.key; }).length;
+  if(has !== p.rows.length){
+    state.data.lineup = state.data.lineup.filter(r => { const d = parseDate(r['날짜']); return !(d && keyOf(d) === p.key); }).concat(p.rows);
+  } else state.pendingLineup = null;
+}
+function showSaved(key, order, slots){
+  const rows = order.map((n, i) => ({ '날짜': key, '타순': String(i + 1), '이름': n, '포지션': SLOT_LABEL[Object.keys(slots).find(k => slots[k] === n)] || '', '비고': '' }));
+  state.pendingLineup = { key, rows, ts: Date.now() };
+  applyPending();
+  state.lineupKey = key; state.luMode = 'view'; writeCache(state.data);
+  render(); window.scrollTo(0, 0);
+}
 function bdAsk(){
   const b = state.build;
   if(!b.order.length){ toast('먼저 라인업을 만들어 주세요'); return; }
@@ -937,7 +953,7 @@ function bdAsk(){
   const box = document.getElementById('confirm'); box.classList.add('on'); box.querySelector('.cancel').focus();
 }
 async function bdSave(){
-  const b = state.build, key = b.key;
+  const b = state.build, key = b.key, snapOrder = b.order.slice(), snapSlots = { ...b.slots };
   const rows = b.order.map((n, i) => ({ order: i + 1, name: n, pos: SLOT_LABEL[slotOf(n)] || '' }));
   const body = JSON.stringify({ action: 'lineup', date: key, rows, password: state.pw });
   toast('저장 중…', 10000);
@@ -960,8 +976,9 @@ async function bdSave(){
       ok = await verify();
       if(!ok){ toast('저장이 확인되지 않았어요. 잠시 뒤 “라인업 보기”에서 확인해 주세요', 5000); return; }
     }
-    toast('시트에 저장했어요. “라인업 보기”에서 확인하세요', 3500);
-    load();
+    showSaved(key, snapOrder, snapSlots);
+    toast('저장했어요. 라인업 보기에 반영됐어요', 3500);
+    setTimeout(load, 3000);
   }catch(e){ toast('저장하지 못했어요: ' + (e.message || e), 5000); }
 }
 async function bdCopy(){
