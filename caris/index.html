@@ -65,6 +65,31 @@ h2{font-size:17px;margin:28px 0 10px;font-weight:700}
 .board .meta{font-size:14px;color:#C9D8CE}
 .board .go{margin-top:10px;background:var(--amber);color:#1A1A12;border:0;border-radius:8px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer}
 
+/* 기록 */
+.box{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.box>summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--chip-on);list-style:none;padding:6px 0}
+.box>summary::-webkit-details-marker{display:none}
+.box>summary::before{content:'▸ ';}
+.box[open]>summary::before{content:'▾ ';}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px -4px 10px;border:1px solid var(--line);border-radius:8px}
+table.st{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.st th,table.st td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line)}
+table.st th{background:var(--bg);font-weight:700;color:var(--mute);font-size:12px}
+table.st th:first-child,table.st td:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
+table.st th:first-child{background:var(--bg)}
+table.st tr.tot td{font-weight:700;background:var(--bg)}
+table.st td.l,table.st th.l{text-align:left}
+th.sortable{cursor:pointer}
+th.sorted{color:var(--ink)}
+.sub{font-size:12px;color:var(--mute);margin:10px 0 2px;font-weight:700}
+.seg{display:flex;gap:6px;margin:16px 0 8px}
+.seg button{flex:1;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
+.sumrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.sumrow div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 4px;text-align:center}
+.sumrow b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.sumrow span{font-size:11px;color:var(--mute)}
+
 /* 카드 */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
 .game{border-left:4px solid var(--line)}
@@ -170,6 +195,11 @@ details.roster summary{cursor:pointer;color:var(--mute);min-height:34px;display:
 .absent.m{background:var(--draw)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 32px);background:rgba(6,16,11,.94);color:#fff;padding:10px 16px;border-radius:14px;font-size:14px;z-index:15;display:none;text-align:center}
 #toast.on{display:block}
+.bat{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:6px;font-size:12px;font-weight:700;vertical-align:middle;white-space:nowrap}
+.bat.first{background:var(--chip-on);color:var(--chip-on-ink)}
+.bat.second{border:1px solid currentColor;color:var(--mute)}
+.board .bat.first{background:var(--amber);color:#1A1A12}
+.board .bat.second{color:#C9D8CE}
 .att-fold{margin-top:10px;border-top:1px solid var(--line)}
 .att-fold > summary{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:46px;cursor:pointer;font-weight:700;font-size:15px;list-style:none}
 .att-fold > summary::-webkit-details-marker{display:none}
@@ -220,6 +250,7 @@ const CONFIG = {
   SHEET_ID: '1dAe6YaJHM7gcgrobXn9Hzi-9ki4nqmmfSMf0aMYm2dc',  // 카리스 구글 시트 ID
   TEAM_NAME: '카리스',     // 팀 이름
   TABS: { members: '팀원', schedule: '일정', lineup: '라인업' },
+  REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
   ATTEND_TAB: '참석',      // 참석 응답이 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_URL: 'https://script.google.com/macros/s/AKfycbywqQs0U3Erp3VGG0f17SklgH46yRtWcDt_sHgoakzYtDUsFy3_iZ0cMh16VnkUtsSJCA/exec'  // 참석 체크용 Apps Script 웹 앱 주소
 };
@@ -238,6 +269,12 @@ function parseDate(s){
   m = s.match(/(\d{1,2})\s*[\/.\-월]\s*(\d{1,2})/);
   if(m) return new Date(new Date().getFullYear(), +m[1]-1, +m[2]);
   return null;
+}
+function batTag(g){
+  const v = (g['선후공'] || '').trim();
+  if(v.includes('선')) return '<span class="bat first" title="먼저 공격">선공</span>';
+  if(v.includes('후')) return '<span class="bat second" title="나중에 공격">후공</span>';
+  return '';
 }
 function resultInfo(g){
   const r = (g['결과'] || '').trim();
@@ -353,11 +390,11 @@ function demoData(){
       {이름:'한승우', 번호:'33', 포지션:'우익수', 투타:'우투우타', 비고:'신입'}
     ],
     schedule: [
-      {날짜:d(6),  시간:'09:00', 상대팀:'블루웨일즈', 장소:'한강 야구장 A구장', 결과:'', 점수:'', 후기:'', 사진:''},
-      {날짜:d(13), 시간:'14:00', 상대팀:'타이거즈 사회인', 장소:'잠실 보조구장', 결과:'', 점수:'', 후기:'', 사진:''},
-      {날짜:d(-7), 시간:'09:00', 상대팀:'레드삭스 야구단', 장소:'탄천 야구장', 결과:'승', 점수:'7:3',
+      {날짜:d(6),  시간:'09:00', 상대팀:'블루웨일즈', 장소:'한강 야구장 A구장', 선후공:'선공', 결과:'', 점수:'', 후기:'', 사진:''},
+      {날짜:d(13), 시간:'14:00', 상대팀:'타이거즈 사회인', 장소:'잠실 보조구장', 선후공:'후공', 결과:'', 점수:'', 후기:'', 사진:''},
+      {날짜:d(-7), 시간:'09:00', 상대팀:'레드삭스 야구단', 장소:'탄천 야구장', 선후공:'후공', 결과:'승', 점수:'7:3',
         후기:'4회 역전 투런이 컸어요. 수비도 깔끔했고 다들 수고하셨습니다!', _photos:[ph('경기 전 단체사진','#1F5A3A','#3FA06C'), ph('역전 투런','#B3412E','#F5B82E')]},
-      {날짜:d(-14), 시간:'14:00', 상대팀:'이글스 BC', 장소:'한강 야구장 B구장', 결과:'패', 점수:'2:5',
+      {날짜:d(-14), 시간:'14:00', 상대팀:'이글스 BC', 장소:'한강 야구장 B구장', 선후공:'선공', 결과:'패', 점수:'2:5',
         후기:'아쉬운 패배. 다음엔 초반 수비 실책부터 줄여봐요.', _photos:[]},
       {날짜:d(-21), 시간:'09:00', 상대팀:'블루웨일즈', 장소:'탄천 야구장', 결과:'우천취소', 점수:'', 후기:'', _photos:[]}
     ],
@@ -384,13 +421,14 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 참석체크 v4';
+const BUILD = '2026-11-20 박스스코어·시즌기록 v6';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[]}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
-const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['members','팀원']];
+const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
   schedule: ico('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  record: ico('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   lineup: ico('<path d="M12 3l9 9-9 9-9-9z"/>'),
   members: ico('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 010 7M18 14.5c2 .7 3.5 2.5 3.5 5"/>')
 };
@@ -409,11 +447,14 @@ async function load(){
     if(c && c.schedule){ state.data = c; state.loaded = true; render(); }
   }
   try{
-    const [members, schedule, lineup, attendRaw] = await Promise.all([
+    const recKeys = Object.keys(CONFIG.REC_TABS);
+    const [members, schedule, lineup, attendRaw, ...recRows] = await Promise.all([
       ...Object.values(CONFIG.TABS).map(loadTab),
-      loadTab(CONFIG.ATTEND_TAB).catch(() => [])
+      loadTab(CONFIG.ATTEND_TAB).catch(() => []),
+      ...recKeys.map(k => loadTab(CONFIG.REC_TABS[k]).catch(() => []))
     ]);
-    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw)}; state.loaded = true; state.offline = false; state.lastLoad = Date.now();
+    const rec = {}; recKeys.forEach((k, i) => rec[k] = recRows[i] || []);
+    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), rec}; state.loaded = true; state.offline = false; state.lastLoad = Date.now();
     writeCache(state.data);
   }catch(e){
     if(state.loaded) state.offline = true;
@@ -527,6 +568,57 @@ async function rsvp(date, answer){
   }
 }
 
+/* ---------- 기록 (박스스코어 · 시즌) ---------- */
+const N = v => { const x = parseFloat(String(v ?? '').replace(/,/g,'')); return isNaN(x) ? 0 : x; };
+const recOf = k => (state.data.rec && state.data.rec[k]) || [];
+const dkey = r => { const d = parseDate(String(r['날짜'] || '')); return d ? keyOf(d) : ''; };
+const byDate = (k, key) => recOf(k).filter(r => dkey(r) === key);
+function hasBox(key){ return byDate('boxBat', key).length > 0 || byDate('innings', key).length > 0; }
+function boxView(g){
+  const key = keyOf(g._d);
+  const inn = byDate('innings', key), bat = byDate('boxBat', key), pit = byDate('boxPit', key);
+  let h = '';
+  if(inn.length){
+    const cols = []; for(let i = 1; i <= 12; i++) if(inn.some(r => String(r[i + '회'] ?? '') !== '')) cols.push(i);
+    h += `<div class="tw"><table class="st"><tr><th>팀</th>${cols.map(i => `<th>${i}</th>`).join('')}<th>R</th><th>H</th><th>E</th></tr>` +
+      inn.map(r => `<tr><td>${esc(r['팀'])}</td>${cols.map(i => `<td>${esc(r[i + '회'])}</td>`).join('')}<td><b>${esc(r['R'])}</b></td><td>${esc(r['H'])}</td><td>${esc(r['E'])}</td></tr>`).join('') + `</table></div>`;
+  }
+  if(bat.length){
+    const rows = bat.filter(r => r['구분'] !== '합계'), tot = bat.find(r => r['구분'] === '합계');
+    h += `<div class="sub">타자</div><div class="tw"><table class="st"><tr><th>이름</th><th>포지션</th><th>타수</th><th>안타</th><th>타점</th><th>도루</th><th>득점</th></tr>` +
+      rows.map(r => `<tr><td>${esc(r['순서'])}. ${esc(r['이름'])}</td><td class="l">${esc(r['포지션'])}</td><td>${esc(r['타수'])}</td><td>${esc(r['안타'])}</td><td>${esc(r['타점'])}</td><td>${esc(r['도루'])}</td><td>${esc(r['득점'])}</td></tr>`).join('') +
+      (tot ? `<tr class="tot"><td>합계</td><td></td><td>${esc(tot['타수'])}</td><td>${esc(tot['안타'])}</td><td>${esc(tot['타점'])}</td><td>${esc(tot['도루'])}</td><td>${esc(tot['득점'])}</td></tr>` : '') + `</table></div>`;
+  }
+  if(pit.length){
+    h += `<div class="sub">투수</div><div class="tw"><table class="st"><tr><th>이름</th><th>결과</th><th>이닝</th><th>피안타</th><th>실점</th><th>자책</th><th>4사구</th><th>삼진</th></tr>` +
+      pit.map(r => `<tr><td>${esc(r['이름'])}</td><td class="l">${esc(r['결과'])}</td><td>${esc(r['이닝'])}</td><td>${esc(r['피안타'])}</td><td>${esc(r['실점'])}</td><td>${esc(r['자책'])}</td><td>${esc(r['4사구'])}</td><td>${esc(r['삼진'])}</td></tr>`).join('') + `</table></div>`;
+  }
+  return `<details class="box" data-key="${key}" ${state.openBox.has(key) ? 'open' : ''}><summary>박스스코어 보기</summary>${h}</details>`;
+}
+const PCT = new Set(['타율','출루율','장타율','OPS','승률','ERA','WHIP']);
+const fmtStat = (c, v) => { const s = String(v ?? ''); if(s === '') return ''; const x = parseFloat(s); if(isNaN(x)) return esc(s); if(['타율','출루율','장타율','OPS'].includes(c)) return x.toFixed(3).replace(/^0\./,'.'); if(['ERA','WHIP'].includes(c)) return x.toFixed(2); if(c === '승률') return x.toFixed(2); return esc(s); };
+function statTable(kind){
+  const rows = recOf(kind === 'bat' ? 'seasonBat' : 'seasonPit');
+  if(!rows.length) return `<div class="empty">시트에 “${kind === 'bat' ? CONFIG.REC_TABS.seasonBat : CONFIG.REC_TABS.seasonPit}” 탭이 아직 없어요.</div>`;
+  const all = Object.keys(rows[0]).filter(c => c && c !== '소속구분');
+  const sortCol = state.recSort[kind] || (kind === 'bat' ? (all.includes('OPS') ? 'OPS' : all[1]) : (all.includes('ERA') ? 'ERA' : all[1]));
+  const asc = sortCol === 'ERA' || sortCol === 'WHIP';
+  const sorted = [...rows].sort((a, b) => asc ? N(a[sortCol]) - N(b[sortCol]) : N(b[sortCol]) - N(a[sortCol]));
+  const cols = all.filter(c => c !== '이름' && c !== '팀게임');
+  return `<div class="tw"><table class="st"><tr><th>이름</th>${cols.map(c => `<th class="sortable ${c === sortCol ? 'sorted' : ''}" data-act="sort" data-kind="${kind}" data-col="${esc(c)}">${esc(c)}${c === sortCol ? (asc ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr>` +
+    sorted.map(r => `<tr><td>${esc(r['이름'])}</td>${cols.map(c => `<td>${fmtStat(c, r[c])}</td>`).join('')}</tr>`).join('') + `</table></div><p class="muted" style="font-size:12px">제목을 누르면 그 기준으로 정렬돼요. 옆으로 밀어서 보세요.</p>`;
+}
+function viewRecord(){
+  const t = recOf('team'); const tv = {}; t.forEach(r => tv[r['항목']] = r['값']);
+  let h = '';
+  if(t.length){
+    h += `<div class="sumrow"><div><b>${esc(tv['순위'] || '-')}</b><span>순위</span></div><div><b>${esc(tv['승'] ?? '-')}-${esc(tv['패'] ?? '-')}${tv['무'] && tv['무'] !== '0' ? '-' + esc(tv['무']) : ''}</b><span>승-패</span></div><div><b>${esc(tv['득점'] ?? '-')}</b><span>득점</span></div><div><b>${esc(tv['실점'] ?? '-')}</b><span>실점</span></div></div>`;
+    if(tv['리그']) h += `<p class="muted" style="font-size:12px;margin:6px 0 0">${esc(tv['리그'])}</p>`;
+  }
+  h += `<div class="seg"><button data-act="rec-sub" data-sub="bat" aria-pressed="${state.recSub === 'bat'}">타자</button><button data-act="rec-sub" data-sub="pit" aria-pressed="${state.recSub === 'pit'}">투수</button></div>` + statTable(state.recSub);
+  return h;
+}
+
 /* ---------- 화면: 일정 ---------- */
 function gamesOf(){
   return state.data.schedule.map(g => ({...g, _d: parseDate(g['날짜'])})).filter(g => g._d);
@@ -548,7 +640,7 @@ function viewSchedule(){
       <div class="dday">${diff === 0 ? 'D-DAY' : 'D-' + diff}</div>
       <div class="info">
         <div class="tag">다음 경기</div>
-        <div class="vs">vs ${esc(n['상대팀'])}</div>
+        <div class="vs">vs ${esc(n['상대팀'])}${batTag(n)}</div>
         <div class="meta">${fmtDate(n._d)} ${esc(n['시간'])}<br>${esc(n['장소'])}</div>
         ${hasLineup ? `<button class="go" data-act="goto-lineup" data-key="${keyOf(n._d)}">라인업 보기</button>` : ''}
       </div></section>`;
@@ -557,7 +649,7 @@ function viewSchedule(){
     if(upcoming.length > 1){
       html += `<h2>예정 경기</h2>` + upcoming.slice(1).map(g => `
         <div class="card"><div class="next-row"><div><div class="date">${fmtDate(g._d)} ${esc(g['시간'])}</div>
-        <div class="opp">vs ${esc(g['상대팀'])}</div></div><div class="date">${esc(g['장소'])}</div></div>${attendFold(g)}</div>`).join('');
+        <div class="opp">vs ${esc(g['상대팀'])}${batTag(g)}</div></div><div class="date">${esc(g['장소'])}</div></div>${attendFold(g)}</div>`).join('');
     }
   }
   if(past.length){
@@ -566,10 +658,11 @@ function viewSchedule(){
       const photos = g._photos || splitPhotos(g['사진']);
       return `<article class="card game ${r ? r.cls : ''}">
         <div class="row"><div><div class="date">${fmtDate(g._d)} ${esc(g['시간'])}</div>
-        <div class="opp">vs ${esc(g['상대팀'])}</div></div>
+        <div class="opp">vs ${esc(g['상대팀'])}${batTag(g)}</div></div>
         <div style="text-align:right">${r ? `<span class="badge ${r.cls}">${esc(r.label)}</span>` : ''}
         ${g['점수'] ? `<div class="score">${esc(scoreText(g['점수']))}</div>` : ''}</div></div>
         ${g['장소'] ? `<div class="date">${esc(g['장소'])}</div>` : ''}
+        ${hasBox(keyOf(g._d)) ? boxView(g) : ''}
         ${g['후기'] ? `<p class="review">${esc(g['후기'])}</p>` : ''}
         ${photos.length ? `<div class="photos">${photos.map(p => `<img loading="lazy" src="${esc(imgUrl(p))}" data-act="photo" data-src="${esc(imgUrl(p))}" alt="${esc(g['상대팀'])}전 사진">`).join('')}</div>` : ''}
       </article>`;
@@ -577,7 +670,7 @@ function viewSchedule(){
   }
   if(/[?&]debug/.test(location.search)){
     const nm = state.data.members.filter(m => m['이름']).length;
-    html += `<p class="muted" style="font-size:12px;margin-top:24px;word-break:break-all">버전 ${BUILD}<br>참석 체크 주소: ${CONFIG.ATTEND_URL ? '입력됨' : '비어 있음'}<br>팀원 ${nm}명 · 전체 일정 ${all.length}개 · 예정 경기 ${upcoming.length}개 · 참석 응답 ${(state.data.attend || []).length}건</p>`;
+    html += `<p class="muted" style="font-size:12px;margin-top:24px;word-break:break-all">버전 ${BUILD}<br>참석 체크 주소: ${CONFIG.ATTEND_URL ? '입력됨' : '비어 있음'}<br>팀원 ${nm}명 · 전체 일정 ${all.length}개 · 예정 경기 ${upcoming.length}개 · 박스스코어 ${recOf('boxBat').length}행 · 시즌타자 ${recOf('seasonBat').length}명 · 참석 응답 ${(state.data.attend || []).length}건</p>`;
   }
   return html;
 }
@@ -659,7 +752,7 @@ function viewLineup(){
     const label = k === 'default' ? '기본' : `${+k.slice(5,7)}/${+k.slice(8,10)}`;
     return `<button class="chip" aria-pressed="${k === sel}" data-act="lineup-key" data-key="${k}">${label}</button>`;
   }).join('');
-  const head = game ? `vs ${esc(game['상대팀'])} · ${fmtDate(game._d)}` : (sel === 'default' ? '기본 라인업' : fmtDate(parseDate(sel)));
+  const head = game ? `vs ${esc(game['상대팀'])}${batTag(game)} · ${fmtDate(game._d)}` : (sel === 'default' ? '기본 라인업' : fmtDate(parseDate(sel)));
   const f = fieldView(rows);
   return `<div class="chips" role="group" aria-label="경기 날짜">${chips}</div>
     <div class="lineup-head">${head}</div>${f ? f + '<h2>타순표</h2>' : ''}` + rows.map(r => {
@@ -716,7 +809,7 @@ function render(){
   if(!state.loaded){ app.innerHTML = `<div class="empty">불러오는 중…</div>`; return; }
   const notice = state.demo ? `<div class="notice">샘플 데이터예요. 파일 위쪽 CONFIG의 SHEET_ID에 시트 ID를 넣으면 우리 팀 시트 내용으로 바뀌어요.</div>`
     : state.offline ? `<div class="notice">최신 내용을 불러오지 못해 마지막으로 저장된 내용을 보여주고 있어요.</div>` : '';
-  const body = state.tab === 'schedule' ? viewSchedule() : state.tab === 'lineup' ? viewLineup() : viewMembers();
+  const body = state.tab === 'schedule' ? viewSchedule() : state.tab === 'lineup' ? viewLineup() : state.tab === 'record' ? viewRecord() : viewMembers();
   app.innerHTML = notice + body;
 }
 
@@ -727,6 +820,8 @@ document.addEventListener('click', e => {
   const act = el.dataset.act;
   if(act === 'tab'){ state.tab = el.dataset.tab; render(); window.scrollTo(0, 0); }
   else if(act === 'reload'){ load(); }
+  else if(act === 'rec-sub'){ state.recSub = el.dataset.sub; render(); }
+  else if(act === 'sort'){ state.recSort[el.dataset.kind] = el.dataset.col; render(); }
   else if(act === 'lineup-key'){ state.lineupKey = el.dataset.key; render(); }
   else if(act === 'goto-lineup'){ state.lineupKey = el.dataset.key; state.tab = 'lineup'; render(); window.scrollTo(0, 0); }
   else if(act === 'photo'){
@@ -745,6 +840,7 @@ document.addEventListener('toggle', e => {
   const d = e.target;
   if(!d.classList) return;
   if(d.classList.contains('roster')) d.open ? state.openAttend.add(d.dataset.key) : state.openAttend.delete(d.dataset.key);
+  else if(d.classList.contains('box')) d.open ? state.openBox.add(d.dataset.key) : state.openBox.delete(d.dataset.key);
   else if(d.classList.contains('att-fold')) d.open ? state.openFold.add(d.dataset.key) : state.openFold.delete(d.dataset.key);
 }, true);
 document.addEventListener('input', e => {
