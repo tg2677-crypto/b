@@ -526,9 +526,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 시상·MVP·개인페이지·전적 v24';
+const BUILD = '2026-11-20 기록 연도 필터 v25';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -676,7 +676,24 @@ async function rsvp(date, answer){
 
 /* ---------- 기록 (박스스코어 · 시즌) ---------- */
 const N = v => { const x = parseFloat(String(v ?? '').replace(/,/g,'')); return isNaN(x) ? 0 : x; };
-const recOf = k => (state.data.rec && state.data.rec[k]) || [];
+const SEASONAL = new Set(['seasonBat', 'seasonPit', 'team']);
+const yrOf = v => { const m = String(v || '').match(/(\d{4})/); return m ? m[1] : ''; };
+function allYears(){
+  const ys = new Set();
+  (state.data.schedule || []).forEach(g => { const d = parseDate(g['날짜']); if(d) ys.add(String(d.getFullYear())); });
+  const rec = state.data.rec || {};
+  SEASONAL.forEach(k => (rec[k] || []).forEach(r => { const y = yrOf(r['연도']); if(y) ys.add(y); }));
+  ['boxBat', 'boxPit', 'innings'].forEach(k => (rec[k] || []).forEach(r => { const y = yrOf(r['날짜']); if(y) ys.add(y); }));
+  return [...ys].sort().reverse();
+}
+function defYear(){ const t = new Date().getFullYear(), ys = allYears(); return String(ys.find(y => +y <= t) || ys[0] || t); }
+function curYear(){ return state.tab === 'record' && state.year ? state.year : defYear(); }
+const recOf = k => {
+  const rows = (state.data.rec && state.data.rec[k]) || [];
+  if(!SEASONAL.has(k)) return rows;
+  const y = curYear(), dy = defYear();
+  return rows.filter(r => (yrOf(r['연도']) || dy) === y);
+};
 const dkey = r => { const d = parseDate(String(r['날짜'] || '')); return d ? keyOf(d) : ''; };
 const byDate = (k, key) => recOf(k).filter(r => dkey(r) === key);
 function hasBox(key){ return byDate('boxBat', key).length > 0 || byDate('innings', key).length > 0; }
@@ -713,8 +730,8 @@ const PCT = new Set(['타율','출루율','장타율','OPS','승률','ERA','WHIP
 const fmtStat = (c, v) => { const s = String(v ?? ''); if(s === '') return ''; const x = parseFloat(s); if(isNaN(x)) return esc(s); if(['타율','출루율','장타율','OPS'].includes(c)) return x.toFixed(3).replace(/^0\./,'.'); if(['ERA','WHIP'].includes(c)) return x.toFixed(2); if(c === '승률') return x.toFixed(2); return esc(s); };
 function statTable(kind){
   const rows = recOf(kind === 'bat' ? 'seasonBat' : 'seasonPit');
-  if(!rows.length) return `<div class="empty">시트에 “${kind === 'bat' ? CONFIG.REC_TABS.seasonBat : CONFIG.REC_TABS.seasonPit}” 탭이 아직 없어요.</div>`;
-  const all = Object.keys(rows[0]).filter(c => c && c !== '소속구분');
+  if(!rows.length) return `<div class="empty">${curYear()}년 ${kind === 'bat' ? '타자' : '투수'} 기록이 아직 없어요.<br><span style="font-size:12px">시트의 “${kind === 'bat' ? CONFIG.REC_TABS.seasonBat : CONFIG.REC_TABS.seasonPit}” 탭에 <b>연도</b> 열을 만들고 해당 연도 기록을 넣어 주세요.</span></div>`;
+  const all = Object.keys(rows[0]).filter(c => c && c !== '소속구분' && c !== '연도');
   const sortCol = state.recSort[kind] || (kind === 'bat' ? (all.includes('OPS') ? 'OPS' : all[1]) : (all.includes('ERA') ? 'ERA' : all[1]));
   const asc = sortCol === 'ERA' || sortCol === 'WHIP';
   const sorted = [...rows].sort((a, b) => asc ? N(a[sortCol]) - N(b[sortCol]) : N(b[sortCol]) - N(a[sortCol]));
@@ -722,9 +739,13 @@ function statTable(kind){
   return `<div class="tw"><table class="st"><tr><th>이름</th>${cols.map(c => `<th class="sortable ${c === sortCol ? 'sorted' : ''}" data-act="sort" data-kind="${kind}" data-col="${esc(c)}">${esc(c)}${c === sortCol ? (asc ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr>` +
     sorted.map(r => `<tr><td>${esc(r['이름'])}</td>${cols.map(c => `<td>${fmtStat(c, r[c])}</td>`).join('')}</tr>`).join('') + `</table></div><p class="muted" style="font-size:12px">제목을 누르면 그 기준으로 정렬돼요. 옆으로 밀어서 보세요.</p>`;
 }
+function yearBar(){
+  const ys = allYears(), cur = curYear();
+  return `<div class="seg" style="margin:12px 0 0" role="group" aria-label="연도">${ys.map(y => `<button data-act="rec-year" data-y="${y}" aria-pressed="${cur === y}">${y}년</button>`).join('')}</div>`;
+}
 function viewRecord(){
   const t = recOf('team'); const tv = {}; t.forEach(r => tv[r['항목']] = r['값']);
-  let h = '';
+  let h = yearBar();
   if(t.length){
     h += `<div class="sumrow"><div><b>${esc(tv['순위'] || '-')}</b><span>순위</span></div><div><b>${esc(tv['승'] ?? '-')}-${esc(tv['패'] ?? '-')}${tv['무'] && tv['무'] !== '0' ? '-' + esc(tv['무']) : ''}</b><span>승-패</span></div><div><b>${esc(tv['득점'] ?? '-')}</b><span>득점</span></div><div><b>${esc(tv['실점'] ?? '-')}</b><span>실점</span></div></div>`;
     if(tv['리그']) h += `<p class="muted" style="font-size:12px;margin:6px 0 0">${esc(tv['리그'])}</p>`;
@@ -774,10 +795,10 @@ function awardsView(){
   h += awardCard('⚾ 다승왕', '', top(pit, '승', () => true), v => v + '승');
   h += awardCard('🔪 탈삼진왕', '', top(pit, '삼진', () => true), int);
   h += awardCard('🛡️ 방어율왕', `${minInn}이닝 이상`, top(pit, 'ERA', r => innNum(r['이닝']) >= minInn, true), v => v.toFixed(2));
-  const cnt = {}; (state.data.attend || []).forEach(r => { if(r.answer === '참석') cnt[r.name] = (cnt[r.name] || 0) + 1; });
+  const cnt = {}; (state.data.attend || []).forEach(r => { if(r.answer === '참석' && String(r.date).startsWith(curYear())) cnt[r.name] = (cnt[r.name] || 0) + 1; });
   h += awardCard('📅 출석왕', '참석 응답 횟수', Object.keys(cnt).map(n => ({ n, v: cnt[n] })).sort((a, b) => b.v - a.v), v => v + '회');
   h += `</div>`;
-  const opps = {}; gamesOf().forEach(g => { const r = resultInfo(g); if(!r) return; const k = normT(g['상대팀']); const o = opps[k] = opps[k] || { name: g['상대팀'], w: 0, l: 0, d: 0 }; if(r.cls === 'win') o.w++; else if(r.cls === 'loss') o.l++; else o.d++; });
+  const opps = {}; gamesOf().filter(g => String(g._d.getFullYear()) === curYear()).forEach(g => { const r = resultInfo(g); if(!r) return; const k = normT(g['상대팀']); const o = opps[k] = opps[k] || { name: g['상대팀'], w: 0, l: 0, d: 0 }; if(r.cls === 'win') o.w++; else if(r.cls === 'loss') o.l++; else o.d++; });
   const ol = Object.values(opps).sort((a, b) => (b.w + b.l + b.d) - (a.w + a.l + a.d) || b.w - a.w);
   if(ol.length) h += `<h2>⚔️ 상대팀별 전적</h2><table class="h2t"><tr><th>상대</th><th>경기</th><th>승</th><th>패</th><th>무</th></tr>${ol.map(o => `<tr><td>${esc(o.name)}</td><td>${o.w + o.l + o.d}</td><td>${o.w}</td><td>${o.l}</td><td>${o.d}</td></tr>`).join('')}</table>`;
   return h;
@@ -1469,6 +1490,7 @@ document.addEventListener('click', e => {
   }
   else if(act === 'more'){ state.more[el.dataset.k] = !state.more[el.dataset.k]; render(); }
   else if(act === 'box-side'){ state.boxSide[el.dataset.key] = el.dataset.side; render(); }
+  else if(act === 'rec-year'){ state.year = el.dataset.y; render(); }
   else if(act === 'rec-sub'){ state.recSub = el.dataset.sub; render(); }
   else if(act === 'sort'){ state.recSort[el.dataset.kind] = el.dataset.col; render(); }
   else if(act === 'lineup-key'){ state.lineupKey = el.dataset.key; render(); }
