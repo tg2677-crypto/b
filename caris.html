@@ -161,9 +161,10 @@ table.st tr.unq td{border-top:2px dashed var(--mute)}
 .predres b{color:var(--chip-on)}
 
 /* KBO 중계 스타일 라인업 */
-.lu-wrap{display:grid;grid-template-columns:58% 1fr;gap:6px;align-items:start;margin-top:4px}
+.lu-wrap{display:grid;grid-template-columns:58% 1fr;gap:6px;align-items:stretch;margin-top:4px}
 @media(min-width:560px){.lu-wrap{grid-template-columns:60% 1fr;gap:12px}}
-.lu-wrap .field{margin:0}
+.lu-wrap .field{margin:0;aspect-ratio:auto;height:100%;min-height:220px}
+.lu-wrap > div[data-act=fbig-open]{height:100%}
 .lu-wrap .fp{flex-direction:row;gap:0}
 .lu-wrap .fo{min-width:13px;height:13px;font-size:8px;padding:0 2px;border-radius:4px 0 0 4px}
 .lu-wrap .fn{font-size:9px;line-height:13px;padding:0 3px;border-radius:0 4px 4px 0;letter-spacing:-.03em}
@@ -639,7 +640,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 그라운드 카드 v36';
+const BUILD = '2026-11-20 그라운드 높이 맞춤 v37';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1445,7 +1446,7 @@ function viewLineupView(){
     return `<button class="chip" aria-pressed="${k === sel}" data-act="lineup-key" data-key="${k}">${label}</button>`;
   }).join('');
   const head = game ? `vs ${esc(game['상대팀'])}${batTag(game)} · ${fmtDate(game._d)}` : (sel === 'default' ? '기본 라인업' : fmtDate(parseDate(sel)));
-  const f = fieldView(rows);
+  const f = fieldView(rows).replace('preserveAspectRatio="xMidYMid slice"', 'preserveAspectRatio="none"');
   const bats = rows.filter(r => String(r['타순']).trim() !== '-' && /^\d/.test(String(r['타순']).trim()));
   const posShort = raw => { const k = POS_KEY[String(raw || '').trim().toUpperCase()] || POS_KEY[String(raw || '').trim()]; return k ? (SLOT_LABEL[k] || k) : esc(raw || ''); };
   const form = n => { const g = recOf('boxBat').filter(r => r['이름'] === n && usRow(r) && dkey(r) && N(r['타수']) + N(r['볼넷']) > 0).sort((a, b) => dkey(b).localeCompare(dkey(a))).slice(0, 3); if(g.length < 2) return ''; const h = g.reduce((a, r) => a + N(r['안타']), 0), ab = g.reduce((a, r) => a + N(r['타수']), 0); return h >= 4 || (ab && h / ab >= .5) ? '🔥' : h === 0 && ab >= 4 ? '🧊' : ''; };
