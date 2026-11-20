@@ -134,6 +134,14 @@ svg.trend{width:100%;height:auto;display:block;background:var(--surface);border:
 
 table.st tr.unq td{border-top:2px dashed var(--mute)}
 
+.bdg .bp{height:4px;border-radius:2px;background:var(--line);margin:5px 8px 0;overflow:hidden}
+.bdg .bp i{display:block;height:100%;background:var(--chip-on)}
+.bdg.t1{border-color:#B87333;box-shadow:0 0 0 1px #B87333 inset}.bdg.t1 .bc{color:#B87333}
+.bdg.t2{border-color:#9AA4AE;box-shadow:0 0 0 1px #9AA4AE inset}.bdg.t2 .bc{color:#7E8892}
+.bdg.t3{border-color:#E0A800;box-shadow:0 0 0 2px #E0A800 inset;background:linear-gradient(160deg,rgba(245,184,46,.16),var(--surface))}.bdg.t3 .bc{color:#C99200}
+.bdg.t4{border-color:#4FC3F7;box-shadow:0 0 0 2px #4FC3F7 inset;background:linear-gradient(160deg,rgba(79,195,247,.18),var(--surface))}.bdg.t4 .bc{color:#1E9BD7}
+.mbadge{font-size:11px;font-weight:700;color:var(--chip-on);margin-left:6px}
+
 /* 헤더 */
 header{
   position:sticky; top:0; z-index:5; background:var(--board); color:#EAF1EC;
@@ -561,7 +569,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 배너축소·MVP마감·포지션 v32';
+const BUILD = '2026-11-20 배지 확장 v33';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -839,6 +847,7 @@ function awardsView(){
   h += awardCard('⚾ 다승왕', '', top(pit, '승', () => true), v => v + '승');
   h += awardCard('🔪 탈삼진왕', '', top(pit, '삼진', () => true), int);
   h += awardCard('🛡️ 방어율왕', `${minInn}이닝 이상`, top(pit, 'ERA', r => innNum(r['이닝']) >= minInn, true), v => v.toFixed(2));
+  h += awardCard('🎖️ 배지 수집왕', '획득한 배지 수', state.data.members.map(m => m['이름']).filter(Boolean).map(n => ({ n, v: badgeCount(n) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v), v => v + '개');
   const cnt = {}; (state.data.attend || []).forEach(r => { if(r.answer === '참석' && String(r.date).startsWith(curYear())) cnt[r.name] = (cnt[r.name] || 0) + 1; });
   h += awardCard('📅 출석왕', '참석 응답 횟수', Object.keys(cnt).map(n => ({ n, v: cnt[n] })).sort((a, b) => b.v - a.v), v => v + '회');
   h += `</div>`;
@@ -951,34 +960,79 @@ function mvpWinners(){
   return win;
 }
 function badgesOf(name){
-  const bats = recOf('boxBat').filter(r => r['이름'] === name && usRow(r));
-  const pits = recOf('boxPit').filter(r => r['이름'] === name && usRow(r));
-  const sb = recOf('seasonBat').find(r => r['이름'] === name) || {};
+  const bats = recOf('boxBat').filter(r => r['이름'] === name && usRow(r) && dkey(r)).sort((a, b) => dkey(a).localeCompare(dkey(b)));
+  const pits = recOf('boxPit').filter(r => r['이름'] === name && usRow(r) && dkey(r));
+  const sb = recOf('seasonBat').find(r => r['이름'] === name) || {}, sp = recOf('seasonPit').find(r => r['이름'] === name) || {};
   const att = (state.data.attend || []).filter(r => r.name === name && r.answer === '참석').length;
-  const cnt = f => bats.filter(f).length, pc = f => pits.filter(f).length;
+  const cnt = f => bats.filter(f).length, pc = f => pits.filter(f).length, sum = (rows, k) => rows.reduce((a, r) => a + N(r[k]), 0);
   const mvp = mvpWinners()[name] || 0;
+  // 연속 경기 안타
+  let run = 0, best = 0; bats.forEach(r => { if(N(r['안타']) > 0){ run++; best = Math.max(best, run); } else if(N(r['타수']) > 0) run = 0; });
+  // 출전 경기 팀 성적
+  const res = {}; gamesOf().forEach(g => { const r = resultInfo(g); if(r) res[keyOf(g._d)] = r.cls; });
+  const days = [...new Set(bats.map(dkey).concat(pits.map(dkey)))], played = days.filter(d => res[d]), wins = played.filter(d => res[d] === 'win').length;
+  const ourPit = {}; recOf('boxPit').filter(usRow).forEach(r => { const k = dkey(r); if(k && r['이름']) ourPit[k] = (ourPit[k] || 0) + 1; });
+  const T = (i, n, d, val, steps) => { const tier = steps.filter(s => val >= s).length; return [i, n, d, tier, { tier, val, steps }]; };
   return [
+    // ── 등급 배지 (브론즈 → 실버 → 골드 → 다이아) ──
+    T('🏏', '안타 수집가', '통산 안타', sum(bats, '안타'), [10, 25, 50, 100]),
+    T('💪', '타점 머신', '통산 타점', sum(bats, '타점'), [10, 25, 50, 100]),
+    T('🏃', '홈플레이트 단골', '통산 득점', sum(bats, '득점'), [10, 25, 50, 100]),
+    T('💨', '대도', '통산 도루', sum(bats, '도루'), [10, 25, 50, 100]),
+    T('👀', '선구안', '통산 볼넷', sum(bats, '볼넷'), [5, 15, 30, 60]),
+    T('🦾', '철인', '통산 출장 경기', days.length, [5, 10, 20, 40]),
+    T('🌀', '닥터K', '투수 통산 탈삼진', sum(pits, '삼진'), [10, 25, 50, 100]),
+    T('🍽️', '이닝이터', '투수 통산 이닝', Math.floor(pits.reduce((a, r) => a + innNum(r['이닝']), 0)), [10, 25, 50, 100]),
+    T('📅', '출석 도장', '참석 응답 횟수', att, [5, 10, 20, 40]),
+    // ── 경기 업적 ──
     ['🎉', '첫 안타', '경기에서 안타 1개 이상', cnt(r => N(r['안타']) >= 1)],
     ['✌️', '멀티히트', '한 경기 2안타 이상', cnt(r => N(r['안타']) >= 2)],
     ['🔥', '맹타', '한 경기 3안타 이상', cnt(r => N(r['안타']) >= 3)],
     ['👑', '4안타 경기', '한 경기 4안타 이상', cnt(r => N(r['안타']) >= 4)],
+    ['🎯', '퍼펙트 데이', '3타석+ 전부 출루 (안타·볼넷·사구)', cnt(r => N(r['타수']) + N(r['볼넷']) + N(r['사구']) >= 3 && N(r['안타']) === N(r['타수']))],
+    ['🎪', '원맨쇼', '한 경기 3안타·3타점 이상', cnt(r => N(r['안타']) >= 3 && N(r['타점']) >= 3)],
     ['💪', '해결사', '한 경기 3타점 이상', cnt(r => N(r['타점']) >= 3)],
+    ['🧨', '클러치 히터', '한 경기 5타점 이상', cnt(r => N(r['타점']) >= 5)],
     ['🏃', '득점 머신', '한 경기 3득점 이상', cnt(r => N(r['득점']) >= 3)],
-    ['💨', '대도', '한 경기 도루 2개 이상', cnt(r => N(r['도루']) >= 2)],
-    ['💥', '홈런 타자', '시즌 홈런 1개 이상', N(sb['홈런']) >= 1 ? N(sb['홈런']) : 0],
+    ['💨', '발야구', '한 경기 도루 3개 이상', cnt(r => N(r['도루']) >= 3)],
+    ['🧘', '눈야구', '한 경기 볼넷 2개 이상', cnt(r => N(r['볼넷']) >= 2)],
+    ['🩹', '몸에 맞는 공', '사구로 출루', cnt(r => N(r['사구']) >= 1)],
+    ['📈', '타격감 UP', '3경기 연속 안타', best >= 3 ? 1 : 0],
+    ['🌋', '불방망이', '5경기 연속 안타', best >= 5 ? 1 : 0],
+    // ── 시즌 업적 ──
+    ['💥', '홈런 타자', '시즌 홈런 1개 이상', N(sb['홈런'])],
+    ['🌈', '질주 본능', '시즌 3루타 1개 이상', N(sb['3루타'])],
+    ['🧱', '갭 히터', '시즌 2루타 3개 이상', N(sb['2루타']) >= 3 ? 1 : 0],
     ['🎯', '3할 타자', '시즌 타율 .300 이상 (10타석+)', N(sb['타율']) >= .3 && N(sb['타석']) >= 10 ? 1 : 0],
+    ['🚀', 'OPS 1.000', '시즌 OPS 1.000 이상 (10타석+)', N(sb['OPS']) >= 1 && N(sb['타석']) >= 10 ? 1 : 0],
+    ['🗓️', '개근 출장', '시즌 팀 경기 80% 이상 출장', N(sb['팀게임']) >= 5 && N(sb['선수게임']) >= N(sb['팀게임']) * .8 ? 1 : 0],
+    // ── 투수 업적 ──
     ['⚾', '승리투수', '승리투수가 된 경기', pc(r => String(r['결과'] || '').includes('승'))],
+    ['🔒', '세이브', '세이브를 올린 경기', pc(r => String(r['결과'] || '').includes('세'))],
     ['🔪', '탈삼진 쇼', '한 경기 삼진 5개 이상', pc(r => N(r['삼진']) >= 5)],
     ['🛡️', '무실점 투구', '2이닝 이상 무실점', pc(r => innNum(r['이닝']) >= 2 && N(r['실점']) === 0)],
+    ['✅', '퀄리티 스타트', '4이닝 이상 2자책 이하', pc(r => innNum(r['이닝']) >= 4 && N(r['자책']) <= 2)],
+    ['🧊', '노히트 투구', '3이닝 이상 피안타 0', pc(r => innNum(r['이닝']) >= 3 && N(r['피안타']) === 0)],
+    ['🏟️', '완투', '혼자 끝까지 던진 경기 (4이닝+)', pc(r => ourPit[dkey(r)] === 1 && innNum(r['이닝']) >= 4)],
+    // ── 팀 · 특별 ──
+    ['🍀', '승리 요정', '출전 5경기+ 팀 승률 6할 이상', played.length >= 5 && wins / played.length >= .6 ? 1 : 0],
     ['🏅', '경기 MVP', 'MVP 투표 1위', mvp],
-    ['📅', '성실 출석', '참석 5회 이상', att >= 5 ? 1 : 0],
-    ['🏆', '개근왕', '참석 10회 이상', att >= 10 ? 1 : 0],
+    ['🌟', '슈퍼스타', 'MVP 3회 이상', mvp >= 3 ? 1 : 0],
   ];
 }
+const TIER = ['', '브론즈', '실버', '골드', '다이아'];
 function badgeHtml(name){
   const bs = badgesOf(name), got = bs.filter(b => b[3] > 0).length;
-  return `<h4>🎖️ 배지 <span class="muted" style="font-weight:400;font-size:12px">${got} / ${bs.length}개 획득</span></h4><div class="badges">${bs.map(([i, n, d, c]) => `<div class="bdg ${c ? '' : 'off'}">${c > 1 ? `<span class="bc">×${c}</span>` : ''}<div class="bi">${i}</div><div class="bn">${n}</div><div class="bx">${d}</div></div>`).join('')}</div>`;
+  const tiered = bs.filter(b => b[4]), plain = bs.filter(b => !b[4]);
+  const tierCard = ([i, n, d, c, t]) => { const nx = t.steps[t.tier], pv = t.steps[t.tier - 1] || 0, pct = nx ? Math.round((t.val - pv) / (nx - pv) * 100) : 100;
+    return `<div class="bdg t${t.tier} ${t.tier ? '' : 'off'}"><span class="bc">${TIER[t.tier] || ''}</span><div class="bi">${i}</div><div class="bn">${n}</div><div class="bx">${d} <b>${t.val}</b>${nx ? ` / ${nx}` : ' · MAX'}</div><div class="bp"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div></div>`; };
+  const plainCard = ([i, n, d, c]) => `<div class="bdg ${c ? '' : 'off'}">${c > 1 ? `<span class="bc">×${c}</span>` : ''}<div class="bi">${i}</div><div class="bn">${n}</div><div class="bx">${d}</div></div>`;
+  const tierPts = tiered.reduce((a, b) => a + b[3], 0);
+  return `<h4>🎖️ 배지 <span class="muted" style="font-weight:400;font-size:12px">${got} / ${bs.length}개 획득 · 등급 점수 ${tierPts}</span></h4>
+    <div class="sub" style="margin:4px 0">등급 배지 (브론즈 → 실버 → 골드 → 다이아)</div><div class="badges">${tiered.map(tierCard).join('')}</div>
+    <div class="sub" style="margin:12px 0 4px">업적</div><div class="badges">${plain.sort((a, b) => (b[3] > 0) - (a[3] > 0)).map(plainCard).join('')}</div>`;
 }
+function badgeCount(name){ return badgesOf(name).filter(b => b[3] > 0).length; }
 
 /* ---------- 선수 비교 ---------- */
 function compareView(a, b){
@@ -1610,7 +1664,7 @@ function membersList(){
     const lead = m['사진'] && /^https?:/.test(m['사진'])
       ? `<img class="avatar" loading="lazy" src="${esc(imgUrl(m['사진']))}" alt="">`
       : `<div class="num">${esc(m['번호'])}</div>`;
-    return `<div class="member" data-act="member" data-name="${esc(m['이름'])}">${lead}<div><div class="nm">${esc(m['이름'])}${m['사진'] && m['번호'] ? ` <span class="muted">#${esc(m['번호'])}</span>` : ''}</div>
+    return `<div class="member" data-act="member" data-name="${esc(m['이름'])}">${lead}<div><div class="nm">${esc(m['이름'])}${m['사진'] && m['번호'] ? ` <span class="muted">#${esc(m['번호'])}</span>` : ''}${(n => n ? `<span class="mbadge">🎖️ ${n}</span>` : '')(badgeCount(m['이름']))}</div>
       <div class="sub">${sub}</div>${memberStat(m['이름'])}</div></div>`;
   }).join('');
 }
