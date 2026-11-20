@@ -143,6 +143,23 @@ table.st tr.unq td{border-top:2px dashed var(--mute)}
 .bdg.t4{border-color:#4FC3F7;box-shadow:0 0 0 2px #4FC3F7 inset;background:linear-gradient(160deg,rgba(79,195,247,.18),var(--surface))}.bdg.t4 .bc{color:#1E9BD7}
 .mbadge{font-size:11px;font-weight:700;color:var(--chip-on);margin-left:6px}
 
+/* 승부 예측 */
+.pred h3{margin:0 0 4px;font-size:15px}
+.pred .pr-row{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0}
+.pred .pr-team{flex:1;text-align:center;font-size:13px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pred .pr-num{display:flex;align-items:center;gap:4px}
+.pred .pr-num button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:18px;font-weight:700;cursor:pointer;color:var(--ink)}
+.pred .pr-num b{width:34px;text-align:center;font-size:26px;font-variant-numeric:tabular-nums}
+.pred .pr-colon{font-size:22px;font-weight:900;color:var(--mute)}
+.pred .pr-save{width:100%;padding:11px;border-radius:10px;border:0;background:var(--chip-on);color:var(--chip-on-ink);font-weight:700;font-size:15px;cursor:pointer}
+.pred .pr-dist{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:10px 0 4px;background:var(--line)}
+.pred .pr-dist i{display:block;height:100%}
+.pred .pr-legend{display:flex;justify-content:space-between;font-size:12px;color:var(--mute)}
+.pred .pr-list{font-size:13px;margin-top:8px;line-height:1.7}
+.pred .pr-list span{display:inline-block;margin-right:10px;white-space:nowrap}
+.predres{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:13px}
+.predres b{color:var(--chip-on)}
+
 /* 헤더 */
 header{
   position:sticky; top:0; z-index:5; background:var(--board); color:#EAF1EC;
@@ -399,7 +416,9 @@ const CONFIG = {
   TABS: { members: '팀원', schedule: '일정', lineup: '라인업' },
   REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
   VOTE_TAB: 'MVP투표',
-  MVP_DAYS: 7,              // 경기 후 며칠까지 MVP 투표를 받을지     // MVP 투표가 저장되는 탭 (Apps Script가 자동으로 만들어요)
+  MVP_DAYS: 7,
+  PREDICT: true,            // 승부 예측 사용 (Apps Script에 predict 기능이 있어야 해요)
+  PREDICT_TAB: '승부예측',              // 경기 후 며칠까지 MVP 투표를 받을지     // MVP 투표가 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_TAB: '참석',      // 참석 응답이 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_URL: 'https://script.google.com/macros/s/AKfycbywqQs0U3Erp3VGG0f17SklgH46yRtWcDt_sHgoakzYtDUsFy3_iZ0cMh16VnkUtsSJCA/exec'  // 참석 체크용 Apps Script 웹 앱 주소
 };
@@ -570,9 +589,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 배지 확장 v33';
+const BUILD = '2026-11-20 승부 예측 v34';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -597,16 +616,17 @@ async function load(){
   }
   try{
     const recKeys = Object.keys(CONFIG.REC_TABS);
-    const [members, schedule, lineup, attendRaw, votes, ...recRows] = await Promise.all([
+    const [members, schedule, lineup, attendRaw, votes, preds, ...recRows] = await Promise.all([
       ...Object.values(CONFIG.TABS).map(loadTab),
       loadTab(CONFIG.ATTEND_TAB).catch(() => []),
       loadTab(CONFIG.VOTE_TAB).catch(() => []),
+      (CONFIG.PREDICT ? loadTab(CONFIG.PREDICT_TAB).catch(() => []) : Promise.resolve([])),
       ...recKeys.map(k => loadTab(CONFIG.REC_TABS[k]).catch(() => []))
     ]);
     const rec = {}; recKeys.forEach((k, i) => rec[k] = recRows[i] || []);
     // 날짜·상대팀이 빈 줄(예: 이닝스코어의 상대팀 줄)은 바로 위 줄 값을 이어받아요
     Object.values(rec).forEach(rows => { let prev = null; rows.forEach(r => { if(!('날짜' in r)) return; if(!String(r['날짜'] || '').trim() && prev){ r['날짜'] = prev['날짜']; if(!String(r['상대팀'] || '').trim()) r['상대팀'] = prev['상대팀']; } else prev = r; }); }); // fillDown
-    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), votes, rec}; applyPending(); state.loaded = true; state.offline = false; state.lastLoad = Date.now();
+    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), votes, preds, rec}; applyPending(); state.loaded = true; state.offline = false; state.lastLoad = Date.now();
     writeCache(state.data);
   }catch(e){
     if(state.loaded) state.offline = true;
@@ -848,6 +868,7 @@ function awardsView(){
   h += awardCard('⚾ 다승왕', '', top(pit, '승', () => true), v => v + '승');
   h += awardCard('🔪 탈삼진왕', '', top(pit, '삼진', () => true), int);
   h += awardCard('🛡️ 방어율왕', `${minInn}이닝 이상`, top(pit, 'ERA', r => innNum(r['이닝']) >= minInn, true), v => v.toFixed(2));
+  const ps = predStats(); h += awardCard('🔮 예측왕', '족집게 3점 · 승패 적중 1점', Object.keys(ps).map(n => ({ n, v: ps[n].exact * 3 + (ps[n].win - ps[n].exact) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v), v => v + '점');
   h += awardCard('🎖️ 배지 수집왕', '획득한 배지 수', state.data.members.map(m => m['이름']).filter(Boolean).map(n => ({ n, v: badgeCount(n) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v), v => v + '개');
   const cnt = {}; (state.data.attend || []).forEach(r => { if(r.answer === '참석' && String(r.date).startsWith(curYear())) cnt[r.name] = (cnt[r.name] || 0) + 1; });
   h += awardCard('📅 출석왕', '참석 응답 횟수', Object.keys(cnt).map(n => ({ n, v: cnt[n] })).sort((a, b) => b.v - a.v), v => v + '회');
@@ -985,6 +1006,7 @@ function badgesOf(name){
     T('🌀', '닥터K', '투수 통산 탈삼진', sum(pits, '삼진'), [10, 25, 50, 100]),
     T('🍽️', '이닝이터', '투수 통산 이닝', Math.floor(pits.reduce((a, r) => a + innNum(r['이닝']), 0)), [10, 25, 50, 100]),
     T('📅', '출석 도장', '참석 응답 횟수', att, [5, 10, 20, 40]),
+    T('🧠', '승부사', '승부 예측 승패 적중', (predStats()[name] || {}).win || 0, [3, 10, 20, 40]),
     // ── 경기 업적 ──
     ['🎉', '첫 안타', '경기에서 안타 1개 이상', cnt(r => N(r['안타']) >= 1)],
     ['✌️', '멀티히트', '한 경기 2안타 이상', cnt(r => N(r['안타']) >= 2)],
@@ -1017,6 +1039,7 @@ function badgesOf(name){
     ['🏟️', '완투', '혼자 끝까지 던진 경기 (4이닝+)', pc(r => ourPit[dkey(r)] === 1 && innNum(r['이닝']) >= 4)],
     // ── 팀 · 특별 ──
     ['🍀', '승리 요정', '출전 5경기+ 팀 승률 6할 이상', played.length >= 5 && wins / played.length >= .6 ? 1 : 0],
+    ['🔮', '족집게', '승부 예측 점수까지 정확히 맞힘', (predStats()[name] || {}).exact || 0],
     ['🏅', '경기 MVP', 'MVP 투표 1위', mvp],
     ['🌟', '슈퍼스타', 'MVP 3회 이상', mvp >= 3 ? 1 : 0],
   ];
@@ -1123,6 +1146,71 @@ async function shareCard(key){
   toast('이미지를 저장했어요. 휴대폰에선 사진을 길게 눌러 저장할 수 있어요', 4500);
 }
 
+
+/* ---------- 승부 예측 ---------- */
+function gameStart(g){ const d = new Date(g._d), m = String(g['시간'] || '').match(/(\d{1,2})\s*[:시]\s*(\d{0,2})/); if(m) d.setHours(+m[1], +(m[2] || 0), 0, 0); return d; }
+function predsOf(key){
+  const m = {}; (state.data.preds || []).forEach(r => { if(dkey(r) === key && r['이름']) m[String(r['이름']).trim()] = { us: N(r['우리']), them: N(r['상대']) }; });
+  return m;
+}
+const outcome = (a, b) => a > b ? 'win' : a < b ? 'loss' : 'draw';
+function actualScore(g){ const m = String(g['점수'] || '').match(/(\d+)\s*[:\-–]\s*(\d+)/); return m ? { us: +m[1], them: +m[2] } : null; }
+function predGrade(g){
+  // 이름 → 'exact' | 'win' | 'miss'
+  const a = actualScore(g), r = resultInfo(g); if(!a || !r) return {};
+  const res = r.cls === 'win' || r.cls === 'loss' || r.cls === 'draw' ? r.cls : outcome(a.us, a.them), out = {};
+  Object.entries(predsOf(keyOf(g._d))).forEach(([n, p]) => { out[n] = p.us === a.us && p.them === a.them ? 'exact' : outcome(p.us, p.them) === res ? 'win' : 'miss'; });
+  return out;
+}
+function predStats(){
+  const st = {}; gamesOf().forEach(g => { Object.entries(predGrade(g)).forEach(([n, v]) => { const s = st[n] = st[n] || { exact: 0, win: 0, n: 0 }; s.n++; if(v === 'exact'){ s.exact++; s.win++; } else if(v === 'win') s.win++; }); });
+  return st;
+}
+function predictCard(g){
+  if(!CONFIG.PREDICT || !CONFIG.ATTEND_URL) return '';
+  const key = keyOf(g._d), pm = predsOf(key), names = Object.keys(pm), open = new Date() < gameStart(g);
+  const me = state.data.members.map(m => m['이름']).includes(state.me) ? state.me : '';
+  const mine = me ? pm[me] : null;
+  const draft = state.predDraft[key] || (mine ? { ...mine } : { us: 5, them: 3 });
+  state.predDraft[key] = draft;
+  const w = names.filter(n => pm[n].us > pm[n].them).length, l = names.filter(n => pm[n].us < pm[n].them).length, d = names.length - w - l;
+  const pct = v => names.length ? (v / names.length * 100).toFixed(1) : 0;
+  let h = `<div class="card pred" style="margin-top:10px"><h3>🔮 승부 예측 <span class="muted" style="font-weight:400;font-size:12px">${names.length}명 참여${open ? ' · 경기 시작 전까지' : ' · 마감'}</span></h3>`;
+  if(open && me){
+    const num = side => `<div class="pr-num"><button data-act="pr-adj" data-key="${key}" data-side="${side}" data-d="-1" aria-label="빼기">−</button><b>${draft[side]}</b><button data-act="pr-adj" data-key="${key}" data-side="${side}" data-d="1" aria-label="더하기">+</button></div>`;
+    h += `<div class="pr-row"><div class="pr-team">${esc(CONFIG.TEAM_NAME)}</div><div class="pr-team">${esc(g['상대팀'])}</div></div>
+      <div class="pr-row">${num('us')}<span class="pr-colon">:</span>${num('them')}</div>
+      <button class="pr-save" data-act="pr-save" data-key="${key}">${mine ? `예측 바꾸기 (지금: ${mine.us} : ${mine.them})` : '예측 저장'}</button>`;
+  }else if(open){
+    h += `<div class="who-row" style="margin-top:8px"><input class="who-input" type="text" placeholder="내 이름 입력 후 예측" autocomplete="off" aria-label="내 이름"><button class="who-ok" data-act="set-me">확인</button></div>`;
+  }
+  if(names.length){
+    h += `<div class="pr-dist"><i style="width:${pct(w)}%;background:var(--win)"></i><i style="width:${pct(d)}%;background:var(--draw)"></i><i style="width:${pct(l)}%;background:var(--loss)"></i></div>
+      <div class="pr-legend"><span>승 예측 ${w}명</span>${d ? `<span>무 ${d}명</span>` : ''}<span>패 예측 ${l}명</span></div>`;
+    if(!open || mine) h += `<div class="pr-list">${names.map(n => `<span>${esc(n)} <b>${pm[n].us}:${pm[n].them}</b></span>`).join('')}</div>`;
+    else h += `<div class="muted" style="font-size:12px;margin-top:6px">내 예측을 저장하면 다른 사람 예측 점수도 보여요.</div>`;
+  }
+  return h + `</div>`;
+}
+function predResultLine(g){
+  if(!CONFIG.PREDICT) return '';
+  const gr = predGrade(g), ns = Object.keys(gr); if(!ns.length) return '';
+  const ex = ns.filter(n => gr[n] === 'exact'), wn = ns.filter(n => gr[n] === 'win');
+  return `<div class="predres">🔮 승부 예측 ${ns.length}명 · ${ex.length ? `🎯 족집게 <b>${ex.map(esc).join(', ')}</b> · ` : ''}승패 적중 ${ex.length + wn.length}명${state.me && gr[state.me] ? ` · 나: ${gr[state.me] === 'exact' ? '🎯 정확히 맞힘!' : gr[state.me] === 'win' ? '✅ 승패 적중' : '❌ 빗나감'}` : ''}</div>`;
+}
+async function savePredict(key){
+  const me = state.me, d = state.predDraft[key]; if(!me || !d) return;
+  const g = gamesOf().find(x => keyOf(x._d) === key);
+  if(!g || new Date() >= gameStart(g)){ toast('예측이 마감된 경기예요'); return; }
+  state.data.preds = (state.data.preds || []).filter(r => !(dkey(r) === key && String(r['이름']).trim() === me)).concat({ '날짜': key, '이름': me, '우리': d.us, '상대': d.them });
+  rerenderKeepScroll();
+  try{
+    const j = await postJson({ action: 'predict', date: key, name: me, us: d.us, them: d.them });
+    if(!j.ok) throw new Error(j.error || '저장 실패');
+    toast(`${d.us} : ${d.them} 으로 예측했어요`); writeCache(state.data);
+  }catch(e){ toast('예측을 저장하지 못했어요: ' + (e.message || e), 4500); load(); }
+}
+
 /* ---------- 화면: 일정 ---------- */
 function gamesOf(){
   return state.data.schedule.map(g => ({...g, _d: parseDate(g['날짜'])})).filter(g => g._d);
@@ -1190,6 +1278,7 @@ function viewSchedule(){
       </div></section>`;
     const nb = attendBlock(n);
     if(nb) html += `<div class="card" style="margin-top:10px">${nb}</div>`;
+    html += predictCard(n);
     if(upcoming.length > 1){
       html += `<button class="more" data-act="more" data-k="up">${state.more.up ? '예정 경기 접기' : `예정 경기 더보기 (${upcoming.length - 1})`}</button>`;
     }
@@ -1211,6 +1300,7 @@ function viewSchedule(){
         ${g['장소'] ? `<div class="date">${placeHtml(g)}</div>` : ''}
         ${hasBox(keyOf(g._d)) ? boxView(g) : ''}
         ${mvpBlock(g)}
+        ${predResultLine(g)}
         ${r ? `<button class="sharebtn" data-act="share-card" data-key="${keyOf(g._d)}">📤 결과 카드 공유</button>` : ''}
         ${g['후기'] ? `<p class="review">${esc(g['후기'])}</p>` : ''}
         ${photos.length ? `<div class="photos">${photos.map(p => `<img loading="lazy" src="${esc(imgUrl(p))}" data-act="photo" data-src="${esc(imgUrl(p))}" alt="${esc(g['상대팀'])}전 사진">`).join('')}</div>` : ''}
@@ -1717,6 +1807,8 @@ document.addEventListener('click', e => {
   else if(act === 'pd-bg'){ if(e.target === el) closePlayer(); }
   else if(act === 'mvp-open'){ state.openMvp.add(el.dataset.key); rerenderKeepScroll(); }
   else if(act === 'mvp-close'){ state.openMvp.delete(el.dataset.key); rerenderKeepScroll(); }
+  else if(act === 'pr-adj'){ const d = state.predDraft[el.dataset.key]; if(d){ d[el.dataset.side] = Math.max(0, Math.min(40, d[el.dataset.side] + +el.dataset.d)); rerenderKeepScroll(); } }
+  else if(act === 'pr-save'){ savePredict(el.dataset.key); }
   else if(act === 'vote'){ castVote(el.dataset.date, el.dataset.name); }
   else if(act.startsWith('bd-') || act === 'lu-mode'){
     if(window.__noClick) return;
