@@ -454,9 +454,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 라인업저장 v9';
+const BUILD = '2026-11-20 라인업비밀번호 v10';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -903,6 +903,27 @@ function bdText(){
   const cand = poolNames(b.key, b.pool).filter(n => !slotOf(n));
   return head + '\n' + lines.join('\n') + (cand.length ? '\n후보: ' + cand.join(', ') : '');
 }
+async function postJson(payload){
+  const res = await fetch(CONFIG.ATTEND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+  return res.json();
+}
+function lockLineup(msg){ state.pw = ''; try{ sessionStorage.removeItem('lineup-pw'); }catch(e){} state.luMode = 'view'; if(msg) toast(msg, 3500); }
+function bdAskPw(){
+  if(!CONFIG.ATTEND_URL){ toast('저장 주소가 설정되지 않아 수정 기능을 쓸 수 없어요'); return; }
+  state.pending = { type: 'pw' };
+  document.getElementById('confirmText').innerHTML = `🔒 <strong>라인업 수정</strong><br><span class="muted" style="font-size:14px">비밀번호를 입력해 주세요</span><br><input id="pwin" class="who-input" type="password" autocomplete="off" enterkeyhint="done" style="width:100%;margin-top:10px;text-align:center" aria-label="비밀번호">`;
+  const box = document.getElementById('confirm'); box.classList.add('on'); setTimeout(() => { const i = document.getElementById('pwin'); if(i) i.focus(); }, 50);
+}
+async function bdCheckPw(pw){
+  if(!pw){ toast('비밀번호를 입력해 주세요'); return; }
+  toast('확인 중…', 8000);
+  try{
+    const j = await postJson({ action: 'verify', password: pw });
+    if(!j.ok) throw new Error(j.error || '확인 실패');
+    state.pw = pw; try{ sessionStorage.setItem('lineup-pw', pw); }catch(e){}
+    state.luMode = 'build'; toast('잠금을 풀었어요', 1500); render(); window.scrollTo(0, 0);
+  }catch(e){ toast(e instanceof TypeError ? '확인하지 못했어요. 인터넷에 올린 주소에서 다시 시도해 주세요' : (e.message || '비밀번호가 틀렸어요'), 4000); }
+}
 function bdAsk(){
   const b = state.build;
   if(!b.order.length){ toast('먼저 라인업을 만들어 주세요'); return; }
@@ -915,7 +936,7 @@ function bdAsk(){
 async function bdSave(){
   const b = state.build, key = b.key;
   const rows = b.order.map((n, i) => ({ order: i + 1, name: n, pos: SLOT_LABEL[slotOf(n)] || '' }));
-  const body = JSON.stringify({ action: 'lineup', date: key, rows });
+  const body = JSON.stringify({ action: 'lineup', date: key, rows, password: state.pw });
   toast('저장 중…', 10000);
   const verify = async () => {
     for(let i = 0; i < 4; i++){
@@ -929,7 +950,7 @@ async function bdSave(){
     let ok = false;
     try{
       const res = await fetch(CONFIG.ATTEND_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body });
-      const j = await res.json(); if(!j.ok) throw new Error(j.error || '저장 실패'); ok = true;
+      const j = await res.json(); if(!j.ok){ if(j.code === 'auth'){ lockLineup('비밀번호가 맞지 않아요. 다시 잠겼어요'); render(); return; } throw new Error(j.error || '저장 실패'); } ok = true;
     }catch(e){
       if(!(e instanceof TypeError)) throw e;
       await fetch(CONFIG.ATTEND_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body });
@@ -985,11 +1006,11 @@ function viewBuilder(){
       <div class="seg" style="margin:0;width:190px"><button data-act="bd-pool" data-pool="att" aria-pressed="${b.pool === 'att'}" style="padding:6px">참석자 ${attN}</button><button data-act="bd-pool" data-pool="all" aria-pressed="${b.pool === 'all'}" style="padding:6px">전체</button></div></div>
     <div class="cands" id="bd-pool">${candHtml}</div>
     <h2>타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}
-    <div class="bd-bar" style="margin-top:10px"><button class="hot" data-act="bd-save">☁️ 시트에 저장</button><button class="hot" data-act="bd-copy">📤 복사하기 (단톡방용)</button></div>
+    <div class="bd-bar" style="margin-top:10px"><button class="hot" data-act="bd-save">☁️ 시트에 저장</button><button data-act="bd-lock">🔒 잠그기</button><button class="hot" data-act="bd-copy">📤 복사하기 (단톡방용)</button></div>
     <p class="muted" style="font-size:12px">작업 중인 라인업은 이 기기에 자동 저장돼요. “시트에 저장”을 누르면 팀원 모두의 “라인업 보기”에 반영돼요.</p>`;
 }
 function viewLineup(){
-  const seg = `<div class="seg"><button data-act="lu-mode" data-mode="view" aria-pressed="${state.luMode === 'view'}">📋 라인업 보기</button><button data-act="lu-mode" data-mode="build" aria-pressed="${state.luMode === 'build'}">🛠 라인업 만들기</button></div>`;
+  const seg = `<div class="seg"><button data-act="lu-mode" data-mode="view" aria-pressed="${state.luMode === 'view'}">📋 라인업 보기</button><button data-act="lu-mode" data-mode="build" aria-pressed="${state.luMode === 'build'}">${state.pw ? '🛠' : '🔒'} 라인업 만들기</button></div>`;
   return seg + (state.luMode === 'build' ? viewBuilder() : viewLineupView());
 }
 function rerenderKeepScroll(){ const y = window.scrollY; render(); window.scrollTo(0, y); }
@@ -1098,7 +1119,7 @@ document.addEventListener('click', e => {
   else if(act.startsWith('bd-') || act === 'lu-mode'){
     if(window.__noClick) return;
     const b = state.build;
-    if(act === 'lu-mode'){ state.luMode = el.dataset.mode; render(); return; }
+    if(act === 'lu-mode'){ if(el.dataset.mode === 'build' && !state.pw){ bdAskPw(); return; } state.luMode = el.dataset.mode; render(); return; }
     if(act === 'bd-key'){ state.build = null; state.build = { key: el.dataset.key, pool: 'att', slots: {}, order: [], sel: null }; const d = readDrafts()[el.dataset.key]; if(d){ state.build.slots = d.slots; state.build.order = d.order; } if(!Object.values(attendMap()[el.dataset.key] || {}).some(v => v === '참석')) state.build.pool = 'all'; }
     else if(act === 'bd-pool') b.pool = el.dataset.pool;
     else if(act === 'bd-cand') b.sel = (b.sel && b.sel.name === el.dataset.name && !b.sel.from) ? null : { name: el.dataset.name, from: '' };
@@ -1116,6 +1137,7 @@ document.addEventListener('click', e => {
     else if(act === 'bd-up' || act === 'bd-down'){ const i = +el.dataset.i, j = act === 'bd-up' ? i - 1 : i + 1; if(j >= 0 && j < b.order.length){ [b.order[i], b.order[j]] = [b.order[j], b.order[i]]; saveDraft(); } }
     else if(act === 'bd-copy'){ bdCopy(); return; }
     else if(act === 'bd-save'){ bdAsk(); return; }
+    else if(act === 'bd-lock'){ lockLineup('잠갔어요'); }
     rerenderKeepScroll();
   }
   else if(act === 'more'){ state.more[el.dataset.k] = !state.more[el.dataset.k]; render(); }
@@ -1130,7 +1152,7 @@ document.addEventListener('click', e => {
   else if(act === 'close-photo'){ document.getElementById('lightbox').classList.remove('on'); }
   else if(act === 'rsvp'){ askRsvp(el.dataset.date, el.dataset.ans); }
   else if(act === 'set-me'){ setMe(el.parentElement.querySelector('input').value); }
-  else if(act === 'confirm-ok'){ const p = state.pending; closeConfirm(); if(p) (p.type === 'lineup' ? bdSave() : rsvp(p.date, p.ans)); }
+  else if(act === 'confirm-ok'){ const p = state.pending, pv = (document.getElementById('pwin') || {}).value; closeConfirm(); if(p) (p.type === 'pw' ? bdCheckPw(pv) : p.type === 'lineup' ? bdSave() : rsvp(p.date, p.ans)); }
   else if(act === 'confirm-cancel'){ closeConfirm(); }
   else if(act === 'change-me'){ state.me = ''; try{ localStorage.removeItem(ME_KEY); }catch(e){} render(); }
 });
@@ -1147,7 +1169,8 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){ document.getElementById('lightbox').classList.remove('on'); closeConfirm(); }
-  if(e.key === 'Enter' && e.target.classList && e.target.classList.contains('who-input')) setMe(e.target.value);
+  if(e.key === 'Enter' && e.target.id === 'pwin'){ const v = e.target.value; closeConfirm(); bdCheckPw(v); }
+  else if(e.key === 'Enter' && e.target.classList && e.target.classList.contains('who-input')) setMe(e.target.value);
 });
 // 앱으로 돌아왔을 때 1분 이상 지났으면 자동으로 최신 내용 불러오기
 document.addEventListener('visibilitychange', () => {
