@@ -459,7 +459,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 타순표투수제외 v16';
+const BUILD = '2026-11-20 선발투수표기 v17';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
@@ -759,6 +759,8 @@ const FIELD_SVG = `<svg viewBox="0 0 360 370" preserveAspectRatio="xMidYMid slic
     <polygon points="173,296 187,296 187,302 180,308 173,302"/>
   </g>
 </svg>`;
+// 라인업 보기에서는 투수를 “선발투수”로 보여줘요
+function posShow(raw){ const k = POS_KEY[String(raw).trim().toUpperCase()] || POS_KEY[String(raw).trim()]; return k === 'P' ? '선발투수' : raw; }
 function fieldView(rows){
   const used = new Set(); const chips = [];
   rows.forEach(r => {
@@ -767,7 +769,7 @@ function fieldView(rows){
     if(!k || used.has(k)) return;
     used.add(k);
     const [x, y] = SPOT[k];
-    chips.push(`<div class="fp" style="left:${(x/360*100).toFixed(2)}%;top:${(y/370*100).toFixed(2)}%"><span class="fo">${esc(r['타순'])}</span><span class="fn">${esc(r['이름'])}</span></div>`);
+    chips.push(`<div class="fp" style="left:${(x/360*100).toFixed(2)}%;top:${(y/370*100).toFixed(2)}%"><span class="fo">${k === 'P' && !/^\d/.test(String(r['타순']).trim()) ? '선발' : esc(r['타순'])}</span><span class="fn">${esc(r['이름'])}</span></div>`);
   });
   if(!chips.length) return '';
   return `<div class="field" role="img" aria-label="포지션별 수비 배치">${FIELD_SVG}${chips.join('')}</div>`;
@@ -802,8 +804,8 @@ function viewLineupView(){
       const sub = [m && m['번호'] ? `#${esc(m['번호'])}` : '', esc(r['비고'])].filter(Boolean).join(' · ');
       return `<div class="order"><div class="no">${esc(r['타순'])}</div>
         <div class="who"><div class="nm">${esc(r['이름'])}${am[r['이름']] === '불참' ? '<span class="absent">불참</span>' : am[r['이름']] === '미정' ? '<span class="absent m">미정</span>' : ''}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
-        ${r['포지션'] ? `<div class="pos">${esc(r['포지션'])}</div>` : ''}</div>`;
-    }).join('') + (() => { const p = rows.filter(r => String(r['타순']).trim() === '-'); return p.length ? `<div class="muted" style="font-size:13px;margin:6px 2px">투수: ${p.map(r => esc(r['이름'])).join(', ')} (지타 사용 · 타순 제외)</div>` : ''; })();
+        ${r['포지션'] ? `<div class="pos">${esc(posShow(r['포지션']))}</div>` : ''}</div>`;
+    }).join('') + (() => { const p = rows.filter(r => String(r['타순']).trim() === '-'); return p.length ? `<div class="muted" style="font-size:13px;margin:6px 2px">선발투수: ${p.map(r => esc(r['이름'])).join(', ')} (지타 사용 · 타순 제외)</div>` : ''; })();
 }
 
 /* ---------- 라인업 만들기 ---------- */
