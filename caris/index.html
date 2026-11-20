@@ -84,7 +84,7 @@ table.h2t th{font-size:12px;color:var(--mute)}
 .mvp button.mc span{position:relative}
 .mvp button.mc[aria-pressed=true]{border-color:var(--chip-on);box-shadow:0 0 0 1px var(--chip-on) inset;font-weight:700}
 .mvp .who-row{margin-top:8px}
-#pd{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
+#pd{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
 #pd.on{display:flex}
 #pd .pd-sheet{background:var(--bg);color:var(--ink);width:100%;max-width:640px;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom,0px))}
 #pd .pd-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
@@ -209,6 +209,26 @@ table.st tr.unq td{border-top:2px dashed var(--mute)}
 .pc.me{outline:2px solid #4FC3F7;outline-offset:1px}
 @keyframes pcIn{from{opacity:0;transform:translate(-50%,-30%) scale(.7)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
 #fbig .lg{max-width:460px;text-align:center;font-size:11px;color:rgba(255,255,255,.8)}
+
+/* 라인업 상단 · 매치업 헤더 */
+.lu-top{display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px}
+.lu-top .t{font-size:17px;font-weight:900}
+.lu-lock{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
+.mu{background:var(--board);color:#EAF1EC;border-radius:12px;overflow:hidden;margin-bottom:8px}
+.mu-top{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,var(--crest,#C8262F),#7a1419);padding:4px 4px;font-size:12px;font-weight:700}
+.mu-top button{background:none;border:0;color:#fff;font-size:15px;width:32px;height:28px;cursor:pointer}
+.mu-top button:disabled{opacity:.25;cursor:default}
+.mu-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:10px 12px 2px;text-align:center}
+.mu-teams span{font-size:17px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mu-teams b{font-size:12px;color:var(--amber);font-weight:900}
+.mu-sub{text-align:center;font-size:11px;color:#9DB5A6;padding:0 10px 9px}
+.kbo .kr.sp{grid-template-columns:22px 1fr auto;background:rgba(200,38,47,.22);height:30px}
+.kbo .kr.sp .o{font-size:10px;color:#fff;background:var(--crest,#C8262F);border-radius:4px;padding:1px 0}
+.bench{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.bench .bh{font-size:14px;font-weight:900;margin-bottom:6px}
+.bench .bh span{font-size:12px;font-weight:500;color:var(--mute)}
+.bench .bl{display:flex;flex-wrap:wrap;gap:6px}
+.bench .bl span{font-size:14px;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--line);cursor:pointer}
 
 /* 헤더 */
 header{
@@ -640,7 +660,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 그라운드 높이 맞춤 v37';
+const BUILD = '2026-11-21 라인업 레이아웃·개인페이지 v38';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -995,20 +1015,20 @@ function playerView(name){
   const pits = recOf('boxPit').filter(r => r['이름'] === name && usRow(r) && dkey(r)).sort((a, b) => dkey(a).localeCompare(dkey(b)));
   const T = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
   let h = `<div class="pd-top"><div><h2>${esc(name)}${m['번호'] ? ` <span class="muted" style="font-size:15px">#${esc(m['번호'])}</span>` : ''}</h2><div class="muted" style="font-size:13px">${[m['포지션'], m['투타'], m['비고']].filter(Boolean).map(esc).join(' · ')}</div></div><button class="pd-x" data-act="pd-close" aria-label="닫기">✕</button></div>`;
-  if(sb && N(sb['타석']) > 0) h += `<div class="pdtiles">${T(fmtStat('타율', sb['타율']), '타율')}${T(fmtStat('OPS', sb['OPS']), 'OPS')}${T(esc(sb['타점']), '타점')}${T(esc(sb['득점']), '득점')}${T(esc(sb['홈런']), '홈런')}${T(esc(sb['도루']), '도루')}</div>`;
-  if(sp && N(sp['선수게임']) > 0) h += `<div class="pdtiles">${T(fmtStat('ERA', sp['ERA']), '방어율')}${T(esc(sp['이닝']), '이닝')}${T(esc(sp['승']) + '-' + esc(sp['패']), '승-패')}</div>`;
+  if(sb && N(sb['타석']) > 0) h += `<h4>🏏 타자</h4><div class="pdtiles">${T(fmtStat('타율', sb['타율']), '타율')}${T(fmtStat('OPS', sb['OPS']), 'OPS')}${T(esc(sb['타점']), '타점')}${T(esc(sb['득점']), '득점')}${T(esc(sb['홈런']), '홈런')}${T(esc(sb['도루']), '도루')}</div>`;
+  if(sp && N(sp['선수게임']) > 0) h += `<h4>⚾ 투수</h4><div class="pdtiles">${T(fmtStat('ERA', sp['ERA']), '방어율')}${T(esc(sp['이닝']), '이닝')}${T(esc(sp['승']) + '-' + esc(sp['패']), '승-패')}${T(esc(sp['삼진']), '탈삼진')}${T(fmtStat('WHIP', sp['WHIP']), 'WHIP')}${T(esc(sp['선수게임']), '등판')}</div>`;
+  const ar = (state.data.attend || []).filter(r => r.name === name), yes = ar.filter(r => r.answer === '참석').length;
+  if(ar.length) h += `<h4>📅 출석</h4><div class="pdg"><span>참석 응답</span><span><b>${yes}</b> / ${ar.length}경기 (${Math.round(yes / ar.length * 100)}%)</span></div>`;
   h += compareSelect(name) + badgeHtml(name);
   if(bats.length){
     const games = bats.map(r => ({ d: dkey(r), opp: r['상대팀'], ab: N(r['타수']), h: N(r['안타']), rbi: N(r['타점']), sb: N(r['도루']), r: N(r['득점']), bb: N(r['볼넷']) + N(r['사구']) }));
-    h += `<h4>📈 경기별 타격</h4>${trendSvg(games)}`;
+    h += `<h4>🏏 타자 · 경기별 타격</h4>${trendSvg(games)}`;
     h += games.slice().reverse().map(g => `<div class="pdg"><span>${g.d.slice(5).replace('-', '/')} vs ${esc(g.opp)}</span><span>${g.ab}타수 ${g.h}안타${g.rbi ? ` ${g.rbi}타점` : ''}${g.sb ? ` ${g.sb}도루` : ''}${g.r ? ` ${g.r}득점` : ''}${g.bb ? ` ${g.bb}볼넷` : ''}</span></div>`).join('');
     const by = {}; games.forEach(g => { const k = normT(g.opp), o = by[k] = by[k] || { n: g.opp, g: 0, ab: 0, h: 0, rbi: 0 }; o.g++; o.ab += g.ab; o.h += g.h; o.rbi += g.rbi; });
     const bl = Object.values(by).filter(o => o.ab).sort((a, b) => b.ab - a.ab);
-    if(bl.length) h += `<h4>🆚 상대팀별 타격</h4><table class="h2t"><tr><th>상대</th><th>경기</th><th>타수</th><th>안타</th><th>타율</th></tr>${bl.map(o => `<tr><td>${esc(o.n)}</td><td>${o.g}</td><td>${o.ab}</td><td>${o.h}</td><td>${(o.h / o.ab).toFixed(3).replace(/^0\./, '.')}</td></tr>`).join('')}</table>`;
+    if(bl.length) h += `<h4>🏏 타자 · 상대팀별 타격</h4><table class="h2t"><tr><th>상대</th><th>경기</th><th>타수</th><th>안타</th><th>타율</th></tr>${bl.map(o => `<tr><td>${esc(o.n)}</td><td>${o.g}</td><td>${o.ab}</td><td>${o.h}</td><td>${(o.h / o.ab).toFixed(3).replace(/^0\./, '.')}</td></tr>`).join('')}</table>`;
   }
-  if(pits.length) h += `<h4>⚾ 경기별 투구</h4>` + pits.slice().reverse().map(r => `<div class="pdg"><span>${dkey(r).slice(5).replace('-', '/')} vs ${esc(r['상대팀'])}</span><span>${esc(r['이닝'])}이닝 ${esc(r['피안타'])}피안타 ${esc(r['실점'])}실점 ${esc(r['삼진'])}K${r['결과'] ? ' · ' + esc(r['결과']) : ''}</span></div>`).join('');
-  const ar = (state.data.attend || []).filter(r => r.name === name), yes = ar.filter(r => r.answer === '참석').length;
-  if(ar.length) h += `<h4>📅 출석</h4><div class="pdg"><span>참석 응답</span><span><b>${yes}</b> / ${ar.length}경기 (${Math.round(yes / ar.length * 100)}%)</span></div>`;
+  if(pits.length) h += `<h4>⚾ 투수 · 경기별 투구</h4>` + pits.slice().reverse().map(r => `<div class="pdg"><span>${dkey(r).slice(5).replace('-', '/')} vs ${esc(r['상대팀'])}</span><span>${esc(r['이닝'])}이닝 ${esc(r['피안타'])}피안타 ${esc(r['실점'])}실점 ${esc(r['삼진'])}K${r['결과'] ? ' · ' + esc(r['결과']) : ''}</span></div>`).join('');
   if(!bats.length && !pits.length && !ar.length) h += `<div class="empty">아직 보여줄 기록이 없어요.</div>`;
   return h;
 }
@@ -1446,20 +1466,30 @@ function viewLineupView(){
     return `<button class="chip" aria-pressed="${k === sel}" data-act="lineup-key" data-key="${k}">${label}</button>`;
   }).join('');
   const head = game ? `vs ${esc(game['상대팀'])}${batTag(game)} · ${fmtDate(game._d)}` : (sel === 'default' ? '기본 라인업' : fmtDate(parseDate(sel)));
+  const chrono = keys.filter(k => k !== 'default').sort(), ci = chrono.indexOf(sel);
+  const prevK = ci > 0 ? chrono[ci - 1] : '', nextK = ci >= 0 && ci < chrono.length - 1 ? chrono[ci + 1] : '';
+  const bt = game ? String(game['선후공'] || '').trim() : '';
+  const h2 = game ? h2h(game['상대팀']) : null;
+  const mu = `<div class="mu"><div class="mu-top"><button data-act="lineup-key" data-key="${prevK}" ${prevK ? '' : 'disabled'} aria-label="이전 경기">◀</button><span>${game ? `${fmtDate(game._d)} ${esc(game['시간'] || '')}${game['장소'] ? ' · ' + esc(game['장소']) : ''}` : esc(sel === 'default' ? '기본 라인업' : fmtDate(parseDate(sel)))}</span><button data-act="lineup-key" data-key="${nextK}" ${nextK ? '' : 'disabled'} aria-label="다음 경기">▶</button></div>
+    ${game ? `<div class="mu-teams"><span>${esc(CONFIG.TEAM_NAME)}</span><b>VS</b><span>${esc(game['상대팀'])}</span></div><div class="mu-sub">${bt ? (bt.includes('선') ? '선공 (먼저 공격)' : '후공 (나중에 공격)') + ' · ' : ''}${h2 && h2.n ? `상대 전적 ${h2.w}승${h2.d ? ' ' + h2.d + '무' : ''} ${h2.l}패` : '첫 만남'}</div>` : ''}</div>`;
   const f = fieldView(rows).replace('preserveAspectRatio="xMidYMid slice"', 'preserveAspectRatio="none"');
   const bats = rows.filter(r => String(r['타순']).trim() !== '-' && /^\d/.test(String(r['타순']).trim()));
   const posShort = raw => { const k = POS_KEY[String(raw || '').trim().toUpperCase()] || POS_KEY[String(raw || '').trim()]; return k ? (SLOT_LABEL[k] || k) : esc(raw || ''); };
   const form = n => { const g = recOf('boxBat').filter(r => r['이름'] === n && usRow(r) && dkey(r) && N(r['타수']) + N(r['볼넷']) > 0).sort((a, b) => dkey(b).localeCompare(dkey(a))).slice(0, 3); if(g.length < 2) return ''; const h = g.reduce((a, r) => a + N(r['안타']), 0), ab = g.reduce((a, r) => a + N(r['타수']), 0); return h >= 4 || (ab && h / ab >= .5) ? '🔥' : h === 0 && ab >= 4 ? '🧊' : ''; };
   const avg = n => { const r = batRowOf(n); return r && N(r['타석']) > 0 ? fmtStat('타율', r['타율']) : '-'; };
   const tag = n => am[n] === '불참' ? '<small>불참</small>' : am[n] === '미정' ? '<small class="m">미정</small>' : '';
-  const board = `<div class="kbo" role="table" aria-label="타순표"><div class="kh">${esc(CONFIG.TEAM_NAME)} 선발 라인업<span>타율</span></div>${bats.map(r => `<div class="kr ${r['이름'] === state.me ? 'mine' : ''}" role="row"><span class="o">${esc(r['타순'])}</span><span class="p">${posShort(r['포지션'])}</span><span class="n">${esc(r['이름'])}${tag(r['이름'])}</span><span class="a">${form(r['이름'])}${avg(r['이름'])}</span></div>`).join('')}</div>`;
+  const board = `<div class="kbo" role="table" aria-label="타순표"><div class="kh">${esc(CONFIG.TEAM_NAME)} 선발 라인업<span>타율</span></div>${bats.map(r => `<div class="kr ${r['이름'] === state.me ? 'mine' : ''}" role="row"><span class="o">${esc(r['타순'])}</span><span class="p">${posShort(r['포지션'])}</span><span class="n">${esc(r['이름'])}${tag(r['이름'])}</span><span class="a">${form(r['이름'])}${avg(r['이름'])}</span></div>`).join('')}__SPROW__</div>`;
   const pRow = rows.find(r => (POS_KEY[String(r['포지션'] || '').trim()] || POS_KEY[String(r['포지션'] || '').trim().toUpperCase()]) === 'P');
   let sp = '';
-  if(pRow){ const p = recOf('seasonPit').find(x => x['이름'] === pRow['이름']); sp = `<div class="spcard"><span class="t">선발투수</span><div><div class="nm">${esc(pRow['이름'])}${tag(pRow['이름'])}</div><div class="st">${p && N(p['선수게임']) > 0 ? `평균자책 ${fmtStat('ERA', p['ERA'])} · ${esc(p['이닝'])}이닝 · ${esc(p['승'])}승 ${esc(p['패'])}패 · 삼진 ${esc(p['삼진'])}` : '올 시즌 투구 기록 없음'}</div></div></div>`; }
+  const pStat = pRow ? recOf('seasonPit').find(x => x['이름'] === pRow['이름']) : null;
+  const spRow = pRow ? `<div class="kr sp" role="row"><span class="o">SP</span><span class="n">${esc(pRow['이름'])}${tag(pRow['이름'])}</span><span class="a">${pStat && N(pStat['선수게임']) > 0 ? 'ERA ' + fmtStat('ERA', pStat['ERA']) : '-'}</span></div>` : '';
+  const inLu = new Set(rows.map(r => r['이름']));
+  const bench = Object.keys(am).filter(n => am[n] === '참석' && !inLu.has(n));
+  if(bench.length) sp = `<div class="bench"><div class="bh">🪑 벤치 <span>${bench.length}명 · 대타·교체 대기</span></div><div class="bl">${bench.map(n => `<span data-act="member" data-name="${esc(n)}">${esc(n)}${(n => { const r = batRowOf(n); return r && N(r['타석']) > 0 ? ` <small class="muted">${fmtStat('타율', r['타율'])}</small>` : ''; })(n)}</span>`).join('')}</div></div>`;
   const dh = rows.some(r => String(r['타순']).trim() === '-');
-  return `<div class="chips" role="group" aria-label="경기 날짜">${chips}</div>
-    <div class="lineup-head">${head}</div>
-    ${f ? `<div class="lu-wrap"><div style="position:relative" data-act="fbig-open" data-key="${sel}">${f}<span class="lu-zoom">🔍 크게</span></div>${board}</div>` : board}${sp}
+  const boardFull = board.replace('__SPROW__', spRow);
+  return `${mu}
+    ${f ? `<div class="lu-wrap"><div style="position:relative" data-act="fbig-open" data-key="${sel}">${f}<span class="lu-zoom">🔍 크게</span></div>${boardFull}</div>` : boardFull}${sp}
     <div class="lu-legend">🔥 최근 3경기 타격감 좋음 · 🧊 최근 3경기 무안타${dh ? ' · 지명타자 사용 (투수 타순 제외)' : ''}</div>`;
 }
 
@@ -1777,7 +1807,9 @@ function viewBuilder(){
     <p class="muted" style="font-size:12px">작업 중인 라인업은 이 기기에 자동 저장돼요. “시트에 저장”을 누르면 팀원 모두의 “라인업 보기”에 반영돼요.</p>`;
 }
 function viewLineup(){
-  const seg = `<div class="seg"><button data-act="lu-mode" data-mode="view" aria-pressed="${state.luMode === 'view'}">📋 라인업 보기</button><button data-act="lu-mode" data-mode="build" aria-pressed="${state.luMode === 'build'}">${state.pw ? '🛠' : '🔒'} 라인업 만들기</button></div>`;
+  const seg = state.luMode === 'build'
+    ? `<div class="lu-top"><span class="t">🛠 라인업 만들기</span><button class="lu-lock" data-act="lu-mode" data-mode="view">📋 라인업 보기</button></div>`
+    : `<div class="lu-top"><span class="t">📋 라인업</span><button class="lu-lock" data-act="lu-mode" data-mode="build">${state.pw ? '🛠' : '🔒'} 만들기</button></div>`;
   return seg + (state.luMode === 'build' ? viewBuilder() : viewLineupView());
 }
 function rerenderKeepScroll(){ const y = window.scrollY; render(); window.scrollTo(0, y); }
@@ -1930,7 +1962,7 @@ document.addEventListener('click', e => {
   else if(act === 'rec-year'){ state.year = el.dataset.y; render(); }
   else if(act === 'rec-sub'){ state.recSub = el.dataset.sub; render(); }
   else if(act === 'sort'){ state.recSort[el.dataset.kind] = el.dataset.col; render(); }
-  else if(act === 'lineup-key'){ state.lineupKey = el.dataset.key; render(); }
+  else if(act === 'lineup-key'){ if(!el.dataset.key) return; state.lineupKey = el.dataset.key; render(); }
   else if(act === 'goto-lineup'){ state.lineupKey = el.dataset.key; state.tab = 'lineup'; render(); window.scrollTo(0, 0); }
   else if(act === 'photo'){
     const box = document.getElementById('lightbox');
