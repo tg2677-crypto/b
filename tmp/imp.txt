@@ -1,0 +1,24 @@
+
+/**
+ * 기록 가져오기: 비밀번호를 확인하고, 보낸 탭들의 내용을 통째로 바꿔요. (일정·박스스코어·시즌 기록 등)
+ * d.tabs = { '탭이름': [[제목...], [값...], ...] }, d.keepTabs 에 있는 탭은 건드리지 않아요.
+ */
+function importTabs_(d) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const done = {};
+  Object.keys(d.tabs || {}).forEach(function (name) {
+    const rows = d.tabs[name] || [];
+    let sh = ss.getSheetByName(name);
+    if (!sh) sh = ss.insertSheet(name);
+    sh.clearContents();
+    if (!rows.length) { done[name] = 0; return; }
+    const w = rows.reduce(function (m, r) { return Math.max(m, r.length); }, 0);
+    const block = rows.map(function (r) { const x = r.slice(); while (x.length < w) x.push(''); return x; });
+    sh.getRange(1, 1, block.length, 1).setNumberFormat('@');
+    sh.getRange(1, 1, block.length, w).setValues(block);
+    sh.getRange(1, 1, 1, w).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    done[name] = block.length - 1;
+  });
+  return out_({ ok: true, done: done });
+}
