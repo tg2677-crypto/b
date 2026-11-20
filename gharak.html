@@ -39,6 +39,19 @@ body{
 button{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 
+/* 팀 로고·상단 배너 */
+header{border-bottom:3px solid var(--crest,var(--amber))}
+.hd-brand{display:flex;align-items:center;gap:10px;min-width:0}
+.hd-logo{width:36px;height:36px;border-radius:50%;flex:none;background:#000;box-shadow:0 0 0 2px rgba(255,255,255,.22)}
+.hero{position:relative;overflow:hidden;margin:16px 0 0;border-radius:16px;padding:20px 18px;display:flex;align-items:center;gap:16px;color:#EAF1EC;
+  background:linear-gradient(135deg,#07130d 0%,var(--board) 45%,var(--hero2,#1F5A3A) 100%)}
+.hero::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.10),transparent 70%)}
+.hero .lg{width:84px;height:84px;border-radius:50%;flex:none;background:#000;box-shadow:0 0 0 3px rgba(255,255,255,.28),0 6px 18px rgba(0,0,0,.45);display:grid;place-items:center;font-size:42px;overflow:hidden}
+.hero .lg img{width:100%;height:100%;display:block}
+.hero .tn{font-size:24px;font-weight:900;letter-spacing:-.02em;line-height:1.15}
+.hero .tg{margin-top:4px;font-size:12px;letter-spacing:.06em;font-weight:700;color:var(--amber);text-transform:uppercase}
+.hero .ds{margin-top:6px;font-size:13px;color:#BFD0C5}
+
 /* 헤더 */
 header{
   position:sticky; top:0; z-index:5; background:var(--board); color:#EAF1EC;
@@ -269,7 +282,7 @@ details.roster summary{cursor:pointer;color:var(--mute);min-height:34px;display:
 -->
 
 <header>
-  <h1 id="teamName"></h1>
+  <div class="hd-brand"><img id="hdLogo" class="hd-logo" alt="" hidden><h1 id="teamName"></h1></div>
   <button class="icon-btn" data-act="reload">새로고침</button>
 </header>
 <main id="app"></main>
@@ -287,6 +300,9 @@ details.roster summary{cursor:pointer;color:var(--mute);min-height:34px;display:
 const CONFIG = {
   SHEET_ID: '1t5ckHfUYsqVeMXTZypEHrIyhc9yDUT4JYqF3wD9x594',  // 구글 시트 ID
   TEAM_NAME: '가락불스',     // 팀 이름
+  LOGO: '',   // 팀 로고 (없으면 '')
+  TAGLINE: '',   // 배너 영문 문구
+  DESC: '',
   TABS: { members: '팀원', schedule: '일정', lineup: '라인업' },
   REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
   ATTEND_TAB: '참석',      // 참석 응답이 저장되는 탭 (Apps Script가 자동으로 만들어요)
@@ -459,7 +475,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 성적순 포지션 유지 v20';
+const BUILD = '2026-11-20 팀로고·배너 v21';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1180,6 +1196,8 @@ function sandboxHint(){
 }
 function render(){
   document.getElementById('teamName').textContent = CONFIG.TEAM_NAME;
+  const hl = document.getElementById('hdLogo'); if(hl && CONFIG.LOGO){ hl.src = CONFIG.LOGO; hl.hidden = false; }
+  if(CONFIG.LOGO && !window.__icon){ window.__icon = 1; const lk = document.querySelector('link[rel=icon]'); if(lk){ lk.type = 'image/webp'; lk.href = CONFIG.LOGO; } }
   document.title = CONFIG.TEAM_NAME + ' 야구 페이지';
   document.getElementById('tabs').innerHTML = TAB_LIST.map(([k, l]) =>
     `<button data-act="tab" data-tab="${k}" ${state.tab === k ? 'aria-current="page"' : ''}>${TAB_ICON[k]}<span>${l}</span></button>`).join('');
@@ -1194,7 +1212,8 @@ function render(){
   const notice = state.demo ? `<div class="notice">샘플 데이터예요. 파일 위쪽 CONFIG의 SHEET_ID에 시트 ID를 넣으면 우리 팀 시트 내용으로 바뀌어요.</div>`
     : state.offline ? `<div class="notice">최신 내용을 불러오지 못해 마지막으로 저장된 내용을 보여주고 있어요.</div>` : '';
   const body = state.tab === 'schedule' ? viewSchedule() : state.tab === 'lineup' ? viewLineup() : state.tab === 'record' ? viewRecord() : viewMembers();
-  app.innerHTML = notice + body;
+  const hero = state.tab === 'schedule' ? `<div class="hero"><div class="lg">${CONFIG.LOGO ? `<img src="${CONFIG.LOGO}" alt="${esc(CONFIG.TEAM_NAME)} 로고">` : '⚾'}</div><div><div class="tn">${esc(CONFIG.TEAM_NAME)}</div>${CONFIG.TAGLINE ? `<div class="tg">${esc(CONFIG.TAGLINE)}</div>` : ''}${CONFIG.DESC ? `<div class="ds">${esc(CONFIG.DESC)}</div>` : ''}</div></div>` : '';
+  app.innerHTML = notice + hero + body;
 }
 
 /* ---------- 이벤트 ---------- */
