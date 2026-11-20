@@ -459,9 +459,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 탭순서변경 v18';
+const BUILD = '2026-11-20 상대팀박스스코어 v19';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -614,12 +614,20 @@ const byDate = (k, key) => recOf(k).filter(r => dkey(r) === key);
 function hasBox(key){ return byDate('boxBat', key).length > 0 || byDate('innings', key).length > 0; }
 function boxView(g){
   const key = keyOf(g._d);
-  const inn = byDate('innings', key), bat = byDate('boxBat', key), pit = byDate('boxPit', key);
+  const inn = byDate('innings', key), bat0 = byDate('boxBat', key), pit0 = byDate('boxPit', key);
+  const isUs = r => !r['팀'] || r['팀'] === CONFIG.TEAM_NAME;
+  const hasOpp = bat0.some(r => !isUs(r)) || pit0.some(r => !isUs(r));
+  const side = hasOpp ? (state.boxSide[key] || 'us') : 'us';
+  const bat = bat0.filter(r => (side === 'us') === isUs(r)), pit = pit0.filter(r => (side === 'us') === isUs(r));
+  const oppName = g['상대팀'] || '상대팀';
   let h = '';
   if(inn.length){
     const cols = []; for(let i = 1; i <= 12; i++) if(inn.some(r => String(r[i + '회'] ?? '') !== '')) cols.push(i);
     h += `<div class="tw"><table class="st"><tr><th>팀</th>${cols.map(i => `<th>${i}</th>`).join('')}<th>R</th><th>H</th><th>E</th></tr>` +
       inn.map(r => `<tr><td>${esc(r['팀'])}</td>${cols.map(i => `<td>${esc(r[i + '회'])}</td>`).join('')}<td><b>${esc(r['R'])}</b></td><td>${esc(r['H'])}</td><td>${esc(r['E'])}</td></tr>`).join('') + `</table></div>`;
+  }
+  if(hasOpp){
+    h += `<div class="seg" style="margin:8px 0"><button data-act="box-side" data-key="${key}" data-side="us" aria-pressed="${side === 'us'}">${esc(CONFIG.TEAM_NAME)}</button><button data-act="box-side" data-key="${key}" data-side="opp" aria-pressed="${side === 'opp'}">${esc(oppName)}</button></div>`;
   }
   if(bat.length){
     const rows = bat.filter(r => r['구분'] !== '합계'), tot = bat.find(r => r['구분'] === '합계');
@@ -1217,6 +1225,7 @@ document.addEventListener('click', e => {
     rerenderKeepScroll();
   }
   else if(act === 'more'){ state.more[el.dataset.k] = !state.more[el.dataset.k]; render(); }
+  else if(act === 'box-side'){ state.boxSide[el.dataset.key] = el.dataset.side; render(); }
   else if(act === 'rec-sub'){ state.recSub = el.dataset.sub; render(); }
   else if(act === 'sort'){ state.recSort[el.dataset.kind] = el.dataset.col; render(); }
   else if(act === 'lineup-key'){ state.lineupKey = el.dataset.key; render(); }
