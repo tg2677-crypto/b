@@ -78,7 +78,7 @@ table.h2t th{font-size:12px;color:var(--mute)}
 .mvp{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .mvp .mh{font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center}
 .mvp .mh span{font-weight:400;font-size:12px;color:var(--mute)}
-.mvp .mchips{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.mvp .mchips{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .mvp button.mc{position:relative;text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 10px;cursor:pointer;overflow:hidden;display:flex;justify-content:space-between;gap:8px}
 .mvp button.mc i{position:absolute;left:0;top:0;bottom:0;background:var(--chip-on);opacity:.16}
 .mvp button.mc span{position:relative}
@@ -133,6 +133,8 @@ svg.trend{width:100%;height:auto;display:block;background:var(--surface);border:
 .hd-home{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:999px;border:1px solid #2F4A3A;color:#EAF1EC;flex:none}
 .hd-brand:active .hd-home{background:rgba(255,255,255,.12)}
 
+table.st tr.unq td{border-top:2px dashed var(--mute)}
+
 /* 헤더 */
 header{
   position:sticky; top:0; z-index:5; background:var(--board); color:#EAF1EC;
@@ -185,7 +187,7 @@ th.sorted{color:var(--ink)}
 .sumrow span{font-size:11px;color:var(--mute)}
 
 /* 라인업 만들기 */
-.bd-bar{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;-webkit-overflow-scrolling:touch}
+.bd-bar{display:flex;gap:6px;flex-wrap:wrap;padding:4px 0 8px}
 .bd-bar button,.bd-btn{flex:none;min-height:40px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}
 .bd-bar button:active,.bd-btn:active{transform:scale(.96)}
 .bd-bar .hot{background:var(--amber);color:#1A1A12;border-color:var(--amber)}
@@ -559,7 +561,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 박스스코어 볼넷 v30';
+const BUILD = '2026-11-20 다듬기 v31';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -771,13 +773,18 @@ function statTable(kind){
   const all = Object.keys(rows[0]).filter(c => c && c !== '소속구분' && c !== '연도');
   const sortCol = state.recSort[kind] || (kind === 'bat' ? (all.includes('OPS') ? 'OPS' : all[1]) : (all.includes('ERA') ? 'ERA' : all[1]));
   const asc = sortCol === 'ERA' || sortCol === 'WHIP';
-  const sorted = [...rows].sort((a, b) => asc ? N(a[sortCol]) - N(b[sortCol]) : N(b[sortCol]) - N(a[sortCol]));
+  const tg = Math.max(0, ...rows.map(r => N(r['팀게임'])));
+  const minQ = kind === 'bat' ? Math.max(5, Math.round(tg * 0.7)) : Math.max(3, Math.round(tg * 0.35));
+  const qual = r => kind === 'bat' ? N(r['타석']) >= minQ : innNum(r['이닝']) >= minQ;
+  const rateCol = ['타율', '출루율', '장타율', 'OPS', 'ERA', 'WHIP', '승률'].includes(sortCol);
+  const sorted = [...rows].sort((a, b) => (rateCol ? (qual(b) - qual(a)) : 0) || (asc ? N(a[sortCol]) - N(b[sortCol]) : N(b[sortCol]) - N(a[sortCol])));
   const cols = all.filter(c => c !== '이름' && c !== '팀게임');
   return `<div class="tw"><table class="st"><tr><th>이름</th>${cols.map(c => `<th class="sortable ${c === sortCol ? 'sorted' : ''}" data-act="sort" data-kind="${kind}" data-col="${esc(c)}">${esc(c)}${c === sortCol ? (asc ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr>` +
-    sorted.map(r => `<tr><td>${esc(r['이름'])}</td>${cols.map(c => `<td>${fmtStat(c, r[c])}</td>`).join('')}</tr>`).join('') + `</table></div><p class="muted" style="font-size:12px">제목을 누르면 그 기준으로 정렬돼요. 옆으로 밀어서 보세요.</p>`;
+    sorted.map((r, i) => `<tr${rateCol && i > 0 && qual(sorted[i - 1]) && !qual(r) ? ' class="unq"' : ''}><td>${esc(r['이름'])}</td>${cols.map(c => `<td>${fmtStat(c, r[c])}</td>`).join('')}</tr>`).join('') + `</table></div><p class="muted" style="font-size:12px">제목을 누르면 그 기준으로 정렬돼요. 옆으로 밀어서 보세요.${rateCol ? `<br>타율·OPS 같은 비율 기록은 ${kind === 'bat' ? minQ + '타석' : minQ + '이닝'} 이상 선수를 먼저 보여줘요 (점선 아래는 기준 미달).` : ''}</p>`;
 }
 function yearBar(){
   const ys = allYears(), cur = curYear();
+  if(ys.length < 2) return '';
   return `<div class="seg" style="margin:12px 0 0" role="group" aria-label="연도">${ys.map(y => `<button data-act="rec-year" data-y="${y}" aria-pressed="${cur === y}">${y}년</button>`).join('')}</div>`;
 }
 function viewRecord(){
@@ -1214,7 +1221,7 @@ function fieldView(rows){
 }
 function viewLineupView(){
   const groups = lineupGroups();
-  if(!groups.size) return `<div class="empty">아직 등록된 라인업이 없어요.<br>구글 시트의 “라인업” 탭에 추가해 보세요.</div>`;
+  if(!groups.size) return `<div class="empty">아직 발표된 라인업이 없어요.<br><span style="font-size:13px">감독님이 “라인업 만들기”에서 저장하면 여기에 나와요.</span></div>`;
   const keys = [...groups.keys()].filter(k => k !== 'default').sort().reverse();
   if(groups.has('default')) keys.push('default');
   if(!groups.has(state.lineupKey)){
@@ -1486,7 +1493,7 @@ async function bdCopy(){
   try{ await navigator.clipboard.writeText(t); toast('복사했어요. 단톡방에 붙여넣기 하세요'); }
   catch(e){ const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); toast('복사했어요'); }catch(_){ toast('복사에 실패했어요'); } ta.remove(); }
 }
-const statLine = n => { const r = batRowOf(n); return r ? `${fmtStat('타율', r['타율'])} · OPS ${fmtStat('OPS', r['OPS'])}` : '기록 없음'; };
+const statLine = n => { const r = batRowOf(n); return r && N(r['타석']) > 0 ? `${fmtStat('타율', r['타율'])} · OPS ${fmtStat('OPS', r['OPS'])}` : '기록 없음'; };
 function viewBuilder(){
   initBuild();
   const b = state.build, am = attendMap()[b.key] || {}, games = gamesOf();
