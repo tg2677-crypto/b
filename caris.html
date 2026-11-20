@@ -559,7 +559,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 이닝스코어 상대팀 v29';
+const BUILD = '2026-11-20 박스스코어 볼넷 v30';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -742,18 +742,20 @@ function boxView(g){
   const oppName = g['상대팀'] || '상대팀';
   let h = '';
   if(inn.length){
+    const hasB = inn.some(r => String(r['B'] ?? '') !== '');
     const cols = []; for(let i = 1; i <= 12; i++) if(inn.some(r => String(r[i + '회'] ?? '') !== '')) cols.push(i);
-    h += `<div class="tw"><table class="st"><tr><th>팀</th>${cols.map(i => `<th>${i}</th>`).join('')}<th>R</th><th>H</th><th>E</th></tr>` +
-      inn.map(r => `<tr><td>${esc(r['팀'])}</td>${cols.map(i => `<td>${esc(r[i + '회'])}</td>`).join('')}<td><b>${esc(r['R'])}</b></td><td>${esc(r['H'])}</td><td>${esc(r['E'])}</td></tr>`).join('') + `</table></div>`;
+    h += `<div class="tw"><table class="st"><tr><th>팀</th>${cols.map(i => `<th>${i}</th>`).join('')}<th>R</th><th>H</th><th>E</th>${hasB ? '<th>B</th>' : ''}</tr>` +
+      inn.map(r => `<tr><td>${esc(r['팀'])}</td>${cols.map(i => `<td>${esc(r[i + '회'])}</td>`).join('')}<td><b>${esc(r['R'])}</b></td><td>${esc(r['H'])}</td><td>${esc(r['E'])}</td>${hasB ? `<td>${esc(r['B'])}</td>` : ''}</tr>`).join('') + `</table></div>`;
   }
   if(hasOpp){
     h += `<div class="seg" style="margin:8px 0"><button data-act="box-side" data-key="${key}" data-side="us" aria-pressed="${side === 'us'}">${esc(CONFIG.TEAM_NAME)}</button><button data-act="box-side" data-key="${key}" data-side="opp" aria-pressed="${side === 'opp'}">${esc(oppName)}</button></div>`;
   }
   if(bat.length){
     const rows = bat.filter(r => r['구분'] !== '합계'), tot = bat.find(r => r['구분'] === '합계');
-    h += `<div class="sub">타자</div><div class="tw"><table class="st"><tr><th>이름</th><th>포지션</th><th>타수</th><th>안타</th><th>타점</th><th>도루</th><th>득점</th></tr>` +
-      rows.map(r => `<tr><td>${esc(r['순서'])}. ${esc(r['이름'])}</td><td class="l">${esc(r['포지션'])}</td><td>${esc(r['타수'])}</td><td>${esc(r['안타'])}</td><td>${esc(r['타점'])}</td><td>${esc(r['도루'])}</td><td>${esc(r['득점'])}</td></tr>`).join('') +
-      (tot ? `<tr class="tot"><td>합계</td><td></td><td>${esc(tot['타수'])}</td><td>${esc(tot['안타'])}</td><td>${esc(tot['타점'])}</td><td>${esc(tot['도루'])}</td><td>${esc(tot['득점'])}</td></tr>` : '') + `</table></div>`;
+    const hasBB = bat.some(r => String(r['볼넷'] ?? '') !== '');
+    h += `<div class="sub">타자</div><div class="tw"><table class="st"><tr><th>이름</th><th>포지션</th><th>타수</th><th>안타</th><th>타점</th><th>도루</th><th>득점</th>${hasBB ? '<th>볼넷</th><th>사구</th>' : ''}</tr>` +
+      rows.map(r => `<tr><td>${esc(r['순서'])}. ${esc(r['이름'])}</td><td class="l">${esc(r['포지션'])}</td><td>${esc(r['타수'])}</td><td>${esc(r['안타'])}</td><td>${esc(r['타점'])}</td><td>${esc(r['도루'])}</td><td>${esc(r['득점'])}</td>${hasBB ? `<td>${esc(r['볼넷'])}</td><td>${esc(r['사구'])}</td>` : ''}</tr>`).join('') +
+      (tot ? `<tr class="tot"><td>합계</td><td></td><td>${esc(tot['타수'])}</td><td>${esc(tot['안타'])}</td><td>${esc(tot['타점'])}</td><td>${esc(tot['도루'])}</td><td>${esc(tot['득점'])}</td>${hasBB ? `<td>${esc(tot['볼넷'])}</td><td>${esc(tot['사구'])}</td>` : ''}</tr>` : '') + `</table></div>`;
   }
   if(pit.length){
     h += `<div class="sub">투수</div><div class="tw"><table class="st"><tr><th>이름</th><th>결과</th><th>이닝</th><th>피안타</th><th>실점</th><th>자책</th><th>4사구</th><th>삼진</th></tr>` +
@@ -900,9 +902,9 @@ function playerView(name){
   if(sp && N(sp['선수게임']) > 0) h += `<div class="pdtiles">${T(fmtStat('ERA', sp['ERA']), '방어율')}${T(esc(sp['이닝']), '이닝')}${T(esc(sp['승']) + '-' + esc(sp['패']), '승-패')}</div>`;
   h += compareSelect(name) + badgeHtml(name);
   if(bats.length){
-    const games = bats.map(r => ({ d: dkey(r), opp: r['상대팀'], ab: N(r['타수']), h: N(r['안타']), rbi: N(r['타점']), sb: N(r['도루']), r: N(r['득점']) }));
+    const games = bats.map(r => ({ d: dkey(r), opp: r['상대팀'], ab: N(r['타수']), h: N(r['안타']), rbi: N(r['타점']), sb: N(r['도루']), r: N(r['득점']), bb: N(r['볼넷']) + N(r['사구']) }));
     h += `<h4>📈 경기별 타격</h4>${trendSvg(games)}`;
-    h += games.slice().reverse().map(g => `<div class="pdg"><span>${g.d.slice(5).replace('-', '/')} vs ${esc(g.opp)}</span><span>${g.ab}타수 ${g.h}안타${g.rbi ? ` ${g.rbi}타점` : ''}${g.sb ? ` ${g.sb}도루` : ''}${g.r ? ` ${g.r}득점` : ''}</span></div>`).join('');
+    h += games.slice().reverse().map(g => `<div class="pdg"><span>${g.d.slice(5).replace('-', '/')} vs ${esc(g.opp)}</span><span>${g.ab}타수 ${g.h}안타${g.rbi ? ` ${g.rbi}타점` : ''}${g.sb ? ` ${g.sb}도루` : ''}${g.r ? ` ${g.r}득점` : ''}${g.bb ? ` ${g.bb}볼넷` : ''}</span></div>`).join('');
     const by = {}; games.forEach(g => { const k = normT(g.opp), o = by[k] = by[k] || { n: g.opp, g: 0, ab: 0, h: 0, rbi: 0 }; o.g++; o.ab += g.ab; o.h += g.h; o.rbi += g.rbi; });
     const bl = Object.values(by).filter(o => o.ab).sort((a, b) => b.ab - a.ab);
     if(bl.length) h += `<h4>🆚 상대팀별 타격</h4><table class="h2t"><tr><th>상대</th><th>경기</th><th>타수</th><th>안타</th><th>타율</th></tr>${bl.map(o => `<tr><td>${esc(o.n)}</td><td>${o.g}</td><td>${o.ab}</td><td>${o.h}</td><td>${(o.h / o.ab).toFixed(3).replace(/^0\./, '.')}</td></tr>`).join('')}</table>`;
@@ -1021,11 +1023,11 @@ async function makeShareCard(key){
   const vm = votesOf(key), vc = {}; Object.values(vm).forEach(p => vc[p] = (vc[p] || 0) + 1);
   const mvp = Object.keys(vc).sort((a, b) => vc[b] - vc[a])[0];
   if(mvp){ x.fillStyle = 'rgba(245,184,46,.14)'; x.fillRect(70, y - 56, W - 140, 86); x.fillStyle = '#F5B82E'; x.font = F(900, 44); x.fillText(`🏅 MVP  ${mvp}`, 100, y + 2); x.font = F(500, 28); x.fillStyle = '#E8D9A8'; x.textAlign = 'right'; x.fillText(`${vc[mvp]}표`, W - 100, y); x.textAlign = 'left'; y += 110; }
-  const bats = byDate('boxBat', key).filter(b => usRow(b) && b['이름'] && !/합계|^계$|TOTAL/i.test(b['이름'])).map(b => ({ n: b['이름'], ab: N(b['타수']), h: N(b['안타']), rbi: N(b['타점']), r: N(b['득점']), sb: N(b['도루']) }))
+  const bats = byDate('boxBat', key).filter(b => usRow(b) && b['이름'] && !/합계|^계$|TOTAL/i.test(b['이름'])).map(b => ({ n: b['이름'], ab: N(b['타수']), h: N(b['안타']), rbi: N(b['타점']), r: N(b['득점']), sb: N(b['도루']), bb: N(b['볼넷']) + N(b['사구']) }))
     .sort((a, b) => (b.h * 3 + b.rbi * 2 + b.r + b.sb) - (a.h * 3 + a.rbi * 2 + a.r + a.sb)).filter(b => b.h || b.rbi || b.r).slice(0, 4);
   if(bats.length){
     x.fillStyle = '#9DB5A6'; x.font = F(700, 30); x.fillText('오늘의 활약', 70, y); y += 58;
-    bats.forEach(b => { x.fillStyle = '#fff'; x.font = F(700, 38); x.fillText(b.n, 70, y); x.fillStyle = '#C9D8CE'; x.font = F(500, 34); x.fillText(`${b.ab}타수 ${b.h}안타${b.rbi ? ' ' + b.rbi + '타점' : ''}${b.r ? ' ' + b.r + '득점' : ''}${b.sb ? ' ' + b.sb + '도루' : ''}`, 300, y); y += 56; });
+    bats.forEach(b => { x.fillStyle = '#fff'; x.font = F(700, 38); x.fillText(b.n, 70, y); x.fillStyle = '#C9D8CE'; x.font = F(500, 34); x.fillText(`${b.ab}타수 ${b.h}안타${b.rbi ? ' ' + b.rbi + '타점' : ''}${b.r ? ' ' + b.r + '득점' : ''}${b.sb ? ' ' + b.sb + '도루' : ''}${b.bb ? ' ' + b.bb + '볼넷' : ''}`, 300, y); y += 56; });
     y += 14;
   }
   const pits = byDate('boxPit', key).filter(p => usRow(p) && p['이름'] && !/합계|^계$|TOTAL/i.test(p['이름']));
