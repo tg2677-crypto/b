@@ -558,7 +558,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 홈 버튼 v28';
+const BUILD = '2026-11-20 이닝스코어 상대팀 v29';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -592,6 +592,8 @@ async function load(){
       ...recKeys.map(k => loadTab(CONFIG.REC_TABS[k]).catch(() => []))
     ]);
     const rec = {}; recKeys.forEach((k, i) => rec[k] = recRows[i] || []);
+    // 날짜·상대팀이 빈 줄(예: 이닝스코어의 상대팀 줄)은 바로 위 줄 값을 이어받아요
+    Object.values(rec).forEach(rows => { let prev = null; rows.forEach(r => { if(!('날짜' in r)) return; if(!String(r['날짜'] || '').trim() && prev){ r['날짜'] = prev['날짜']; if(!String(r['상대팀'] || '').trim()) r['상대팀'] = prev['상대팀']; } else prev = r; }); }); // fillDown
     state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), votes, rec}; applyPending(); state.loaded = true; state.offline = false; state.lastLoad = Date.now();
     writeCache(state.data);
   }catch(e){
