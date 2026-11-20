@@ -90,6 +90,11 @@ th.sorted{color:var(--ink)}
 .sumrow b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
 .sumrow span{font-size:11px;color:var(--mute)}
 
+/* 더보기 · 팀원 기록 */
+.more{display:block;width:100%;margin:10px 0 4px;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:14px;cursor:pointer;color:var(--chip-on)}
+.mstat{font-size:12px;color:var(--ink);margin-top:3px;font-variant-numeric:tabular-nums}
+.mstat b{color:var(--chip-on)}
+
 /* 카드 */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
 .game{border-left:4px solid var(--line)}
@@ -421,9 +426,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 박스스코어·시즌기록 v6';
+const BUILD = '2026-11-20 더보기·팀원기록 v7';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['record','기록'],['lineup','라인업'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -647,13 +652,16 @@ function viewSchedule(){
     const nb = attendBlock(n);
     if(nb) html += `<div class="card" style="margin-top:10px">${nb}</div>`;
     if(upcoming.length > 1){
+      html += `<button class="more" data-act="more" data-k="up">${state.more.up ? '예정 경기 접기' : `예정 경기 더보기 (${upcoming.length - 1})`}</button>`;
+    }
+    if(upcoming.length > 1 && state.more.up){
       html += `<h2>예정 경기</h2>` + upcoming.slice(1).map(g => `
         <div class="card"><div class="next-row"><div><div class="date">${fmtDate(g._d)} ${esc(g['시간'])}</div>
         <div class="opp">vs ${esc(g['상대팀'])}${batTag(g)}</div></div><div class="date">${esc(g['장소'])}</div></div>${attendFold(g)}</div>`).join('');
     }
   }
   if(past.length){
-    html += `<h2>지난 경기</h2>` + past.map(g => {
+    html += `<h2>지난 경기</h2>` + (state.more.past ? past : past.slice(0, 1)).map(g => {
       const r = resultInfo(g);
       const photos = g._photos || splitPhotos(g['사진']);
       return `<article class="card game ${r ? r.cls : ''}">
@@ -666,7 +674,7 @@ function viewSchedule(){
         ${g['후기'] ? `<p class="review">${esc(g['후기'])}</p>` : ''}
         ${photos.length ? `<div class="photos">${photos.map(p => `<img loading="lazy" src="${esc(imgUrl(p))}" data-act="photo" data-src="${esc(imgUrl(p))}" alt="${esc(g['상대팀'])}전 사진">`).join('')}</div>` : ''}
       </article>`;
-    }).join('');
+    }).join('') + (past.length > 1 ? `<button class="more" data-act="more" data-k="past">${state.more.past ? '지난 경기 접기' : `지난 경기 더보기 (${past.length - 1})`}</button>` : '');
   }
   if(/[?&]debug/.test(location.search)){
     const nm = state.data.members.filter(m => m['이름']).length;
@@ -765,6 +773,13 @@ function viewLineup(){
 }
 
 /* ---------- 화면: 팀원 ---------- */
+function memberStat(name){
+  const b = recOf('seasonBat').find(r => r['이름'] === name), p = recOf('seasonPit').find(r => r['이름'] === name);
+  const out = [];
+  if(b && N(b['타수']) + N(b['타석']) > 0) out.push(`타자 <b>${fmtStat('타율', b['타율'])}</b> · ${esc(b['선수게임'])}경기 ${esc(b['타수'])}타수 ${esc(b['총안타'])}안타 · 타점 ${esc(b['타점'])} · 득점 ${esc(b['득점'])} · 도루 ${esc(b['도루'])} · OPS ${fmtStat('OPS', b['OPS'])}`);
+  if(p && N(p['선수게임']) > 0) out.push(`투수 ERA <b>${fmtStat('ERA', p['ERA'])}</b> · ${esc(p['이닝'])}이닝 · ${esc(p['승'])}승 ${esc(p['패'])}패 · 삼진 ${esc(p['삼진'])}`);
+  return out.length ? `<div class="mstat">${out.join('<br>')}</div>` : '';
+}
 function membersList(){
   const q = state.query.trim().toLowerCase();
   const list = state.data.members
@@ -780,7 +795,7 @@ function membersList(){
       ? `<img class="avatar" loading="lazy" src="${esc(imgUrl(m['사진']))}" alt="">`
       : `<div class="num">${esc(m['번호'])}</div>`;
     return `<div class="member">${lead}<div><div class="nm">${esc(m['이름'])}${m['사진'] && m['번호'] ? ` <span class="muted">#${esc(m['번호'])}</span>` : ''}</div>
-      <div class="sub">${sub}</div></div></div>`;
+      <div class="sub">${sub}</div>${memberStat(m['이름'])}</div></div>`;
   }).join('');
 }
 function viewMembers(){
@@ -820,6 +835,7 @@ document.addEventListener('click', e => {
   const act = el.dataset.act;
   if(act === 'tab'){ state.tab = el.dataset.tab; render(); window.scrollTo(0, 0); }
   else if(act === 'reload'){ load(); }
+  else if(act === 'more'){ state.more[el.dataset.k] = !state.more[el.dataset.k]; render(); }
   else if(act === 'rec-sub'){ state.recSub = el.dataset.sub; render(); }
   else if(act === 'sort'){ state.recSort[el.dataset.kind] = el.dataset.col; render(); }
   else if(act === 'lineup-key'){ state.lineupKey = el.dataset.key; render(); }
