@@ -170,6 +170,12 @@ details.roster summary{cursor:pointer;color:var(--mute);min-height:34px;display:
 .absent.m{background:var(--draw)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 32px);background:rgba(6,16,11,.94);color:#fff;padding:10px 16px;border-radius:14px;font-size:14px;z-index:15;display:none;text-align:center}
 #toast.on{display:block}
+.att-fold{margin-top:10px;border-top:1px solid var(--line)}
+.att-fold > summary{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:46px;cursor:pointer;font-weight:700;font-size:15px;list-style:none}
+.att-fold > summary::-webkit-details-marker{display:none}
+.att-fold > summary::after{content:"펼치기 ▾";font-weight:500;font-size:13px;color:var(--mute)}
+.att-fold[open] > summary::after{content:"접기 ▴"}
+.att-fold .attend{margin-top:0;padding-top:6px;border-top:0}
 .who-row{display:flex;gap:8px;margin-top:6px}
 .who-input{flex:1;min-width:0;min-height:46px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:16px;padding:0 12px}
 .who-ok{min-height:46px;padding:0 18px;border-radius:10px;border:0;background:var(--chip-on);color:var(--chip-on-ink);font-weight:700;font-size:15px;cursor:pointer}
@@ -378,8 +384,9 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
+const BUILD = '2026-11-20 참석체크 v4';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
-const state = { pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[]}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
+const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[]}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
@@ -453,6 +460,13 @@ function attendBlock(g){
     .map(k => `<p><strong>${k}</strong> ${groups[k].map(esc).join(', ')}</p>`).join('');
   const roster = rosterRows ? `<details class="roster" data-key="${key}"${state.openAttend.has(key) ? ' open' : ''}><summary>명단 보기</summary>${rosterRows}</details>` : '';
   return `<div class="attend">${sum}${me}${roster}</div>`;
+}
+function attendFold(g){
+  const inner = attendBlock(g);
+  if(!inner) return '';
+  const key = keyOf(g._d);
+  const mine = (attendMap()[key] || {})[state.me];
+  return `<details class="att-fold" data-key="${key}"${state.openFold.has(key) ? ' open' : ''}><summary><span>참석 체크${mine ? ` · 내 응답 ${esc(mine)}` : ''}</span></summary>${inner}</details>`;
 }
 let toastTimer;
 function toast(msg, ms = 2500){
@@ -543,7 +557,7 @@ function viewSchedule(){
     if(upcoming.length > 1){
       html += `<h2>예정 경기</h2>` + upcoming.slice(1).map(g => `
         <div class="card"><div class="next-row"><div><div class="date">${fmtDate(g._d)} ${esc(g['시간'])}</div>
-        <div class="opp">vs ${esc(g['상대팀'])}</div></div><div class="date">${esc(g['장소'])}</div></div>${attendBlock(g)}</div>`).join('');
+        <div class="opp">vs ${esc(g['상대팀'])}</div></div><div class="date">${esc(g['장소'])}</div></div>${attendFold(g)}</div>`).join('');
     }
   }
   if(past.length){
@@ -560,6 +574,10 @@ function viewSchedule(){
         ${photos.length ? `<div class="photos">${photos.map(p => `<img loading="lazy" src="${esc(imgUrl(p))}" data-act="photo" data-src="${esc(imgUrl(p))}" alt="${esc(g['상대팀'])}전 사진">`).join('')}</div>` : ''}
       </article>`;
     }).join('');
+  }
+  if(/[?&]debug/.test(location.search)){
+    const nm = state.data.members.filter(m => m['이름']).length;
+    html += `<p class="muted" style="font-size:12px;margin-top:24px;word-break:break-all">버전 ${BUILD}<br>참석 체크 주소: ${CONFIG.ATTEND_URL ? '입력됨' : '비어 있음'}<br>팀원 ${nm}명 · 전체 일정 ${all.length}개 · 예정 경기 ${upcoming.length}개 · 참석 응답 ${(state.data.attend || []).length}건</p>`;
   }
   return html;
 }
@@ -725,7 +743,9 @@ document.addEventListener('click', e => {
 document.getElementById('confirm').addEventListener('click', e => { if(e.target.id === 'confirm') closeConfirm(); });
 document.addEventListener('toggle', e => {
   const d = e.target;
-  if(d.classList && d.classList.contains('roster')) d.open ? state.openAttend.add(d.dataset.key) : state.openAttend.delete(d.dataset.key);
+  if(!d.classList) return;
+  if(d.classList.contains('roster')) d.open ? state.openAttend.add(d.dataset.key) : state.openAttend.delete(d.dataset.key);
+  else if(d.classList.contains('att-fold')) d.open ? state.openFold.add(d.dataset.key) : state.openFold.delete(d.dataset.key);
 }, true);
 document.addEventListener('input', e => {
   if(e.target.id === 'search'){ state.query = e.target.value; document.getElementById('mlist').innerHTML = membersList(); }
