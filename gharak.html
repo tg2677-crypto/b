@@ -52,6 +52,11 @@ header{border-bottom:3px solid var(--crest,var(--amber))}
 .hero .tg{margin-top:4px;font-size:12px;letter-spacing:.06em;font-weight:700;color:var(--amber);text-transform:uppercase}
 .hero .ds{margin-top:6px;font-size:13px;color:#BFD0C5}
 
+.wx{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.14);font-size:14px;color:#DDE8E0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.wx .ic{font-size:30px;line-height:1}
+.wx b{font-size:18px;color:#fff}
+.wx .sm{font-size:12px;color:#9DB5A6;width:100%}
+
 /* 헤더 */
 header{
   position:sticky; top:0; z-index:5; background:var(--board); color:#EAF1EC;
@@ -302,6 +307,7 @@ const CONFIG = {
   TEAM_NAME: '가락불스',     // 팀 이름
   LOGO: '',   // 팀 로고 (없으면 '')
   TAGLINE: '',   // 배너 영문 문구
+  WX_LAT: 37.4955, WX_LON: 127.1180, WX_PLACE: '송파구',   // 날씨 기본 위치 (일정 탭에 위도·경도 열을 넣으면 그 경기만 그 위치)
   DESC: '',
   TABS: { members: '팀원', schedule: '일정', lineup: '라인업' },
   REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
@@ -475,7 +481,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-20 팀로고·배너 v21';
+const BUILD = '2026-11-20 날씨 v22';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -685,6 +691,44 @@ function viewRecord(){
 function gamesOf(){
   return state.data.schedule.map(g => ({...g, _d: parseDate(g['날짜'])})).filter(g => g._d);
 }
+
+// ───── 다음 경기 날씨 (Open-Meteo · 무료, 키 필요 없음) ─────
+const WX_ICON = c => c === 0 ? ['☀️','맑음'] : c <= 2 ? ['🌤️','구름 조금'] : c === 3 ? ['☁️','흐림'] : c <= 48 ? ['🌫️','안개'] : c <= 57 ? ['🌦️','이슬비'] : c <= 67 ? ['🌧️','비'] : c <= 77 ? ['🌨️','눈'] : c <= 82 ? ['🌧️','소나기'] : c <= 86 ? ['🌨️','눈'] : ['⛈️','뇌우'];
+async function wxGet(g){
+  const key = keyOf(g._d) + '|' + (g['시간'] || '') + '|' + (g['장소'] || '');
+  state.wxCache = state.wxCache || {};
+  if(state.wxCache[key]) return state.wxCache[key];
+  const days = Math.round((g._d - today0()) / DAY);
+  if(days > 15) return (state.wxCache[key] = { far: true });
+  let lat = CONFIG.WX_LAT, lon = CONFIG.WX_LON, label = (CONFIG.WX_PLACE || '') + ' 기준';
+  const place = String(g['장소'] || '').trim();
+  const lt = parseFloat(g['위도']), ln = parseFloat(g['경도']);
+  if(lt && ln){ lat = lt; lon = ln; label = place; }
+  else if(place){
+    try{
+      const r = await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=ko&country_code=KR&name=' + encodeURIComponent(place))).json();
+      if(r.results && r.results[0]){ lat = r.results[0].latitude; lon = r.results[0].longitude; label = place; }
+    }catch(e){}
+  }
+  const ds = keyOf(g._d), hm = String(g['시간'] || '').match(/(\d{1,2})\s*[:시]\s*(\d{0,2})/);
+  const hh = hm ? Math.min(23, +hm[1]) : 12;
+  const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m&timezone=Asia%2FSeoul&forecast_days=16&start_date=${ds}&end_date=${ds}`;
+  const j = await (await fetch(u)).json();
+  const h = j.hourly; if(!h || !h.time || !h.time.length) throw new Error('no data');
+  const at = i => ({ t: Math.round(h.temperature_2m[i]), p: h.precipitation_probability[i], c: h.weather_code[i], w: Math.round(h.wind_speed_10m[i] / 3.6 * 10) / 10 });
+  const i = Math.min(hh, h.time.length - 1), i2 = Math.min(hh + 2, h.time.length - 1);
+  return (state.wxCache[key] = { a: at(i), b: at(i2), label, hh });
+}
+async function wxInit(){
+  const el = document.getElementById('wx'); if(!el) return;
+  const up = gamesOf().filter(g => !(g._d < today0())).sort((a, b) => a._d - b._d)[0]; if(!up) return;
+  try{
+    const w = await wxGet(up), el2 = document.getElementById('wx'); if(!el2) return;
+    if(w.far){ el2.innerHTML = '<span class="sm">날씨는 경기 15일 전부터 보여드려요</span>'; return; }
+    const [ic, tx] = WX_ICON(w.a.c), rain = Math.max(w.a.p, w.b.p);
+    el2.innerHTML = `<span class="ic">${ic}</span><span><b>${w.a.t}°</b> ${tx}</span><span>☔ 강수확률 ${rain}%</span><span>💨 바람 ${w.a.w}m/s</span><span class="sm">${String(w.hh).padStart(2, '0')}시 기준 · ${esc(w.label)} · Open-Meteo</span>`;
+  }catch(e){ const x = document.getElementById('wx'); if(x) x.innerHTML = '<span class="sm">날씨를 불러오지 못했어요</span>'; }
+}
 function viewSchedule(){
   const t = today0();
   const isDone = g => g._d < t || (g._d.getTime() === t.getTime() && resultInfo(g));
@@ -704,6 +748,7 @@ function viewSchedule(){
         <div class="tag">다음 경기</div>
         <div class="vs">vs ${esc(n['상대팀'])}${batTag(n)}</div>
         <div class="meta">${fmtDate(n._d)} ${esc(n['시간'])}<br>${esc(n['장소'])}</div>
+        <div class="wx" id="wx"><span class="sm">날씨 확인 중…</span></div>
         ${hasLineup ? `<button class="go" data-act="goto-lineup" data-key="${keyOf(n._d)}">라인업 보기</button>` : ''}
       </div></section>`;
     const nb = attendBlock(n);
@@ -1214,6 +1259,7 @@ function render(){
   const body = state.tab === 'schedule' ? viewSchedule() : state.tab === 'lineup' ? viewLineup() : state.tab === 'record' ? viewRecord() : viewMembers();
   const hero = state.tab === 'schedule' ? `<div class="hero"><div class="lg">${CONFIG.LOGO ? `<img src="${CONFIG.LOGO}" alt="${esc(CONFIG.TEAM_NAME)} 로고">` : '⚾'}</div><div><div class="tn">${esc(CONFIG.TEAM_NAME)}</div>${CONFIG.TAGLINE ? `<div class="tg">${esc(CONFIG.TAGLINE)}</div>` : ''}${CONFIG.DESC ? `<div class="ds">${esc(CONFIG.DESC)}</div>` : ''}</div></div>` : '';
   app.innerHTML = notice + hero + body;
+  if(state.tab === 'schedule') wxInit();
 }
 
 /* ---------- 이벤트 ---------- */
