@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="가락불스">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⚾%3C/text%3E%3C/svg%3E">
-<title>가락불스 야구 페이지</title>
+<title>가락불스</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -1892,7 +1892,7 @@ function render(){
   document.getElementById('teamName').textContent = CONFIG.TEAM_NAME;
   const hl = document.getElementById('hdLogo'); if(hl && CONFIG.LOGO){ hl.src = CONFIG.LOGO; hl.hidden = false; }
   if(CONFIG.LOGO && !window.__icon){ window.__icon = 1; const lk = document.querySelector('link[rel=icon]'); if(lk){ lk.type = 'image/webp'; lk.href = CONFIG.LOGO; } }
-  document.title = CONFIG.TEAM_NAME + ' 야구 페이지';
+  document.title = CONFIG.TEAM_NAME;
   document.getElementById('tabs').innerHTML = TAB_LIST.map(([k, l]) =>
     `<button data-act="tab" data-tab="${k}" ${state.tab === k ? 'aria-current="page"' : ''}>${TAB_ICON[k]}<span>${l}</span></button>`).join('');
   const app = document.getElementById('app');
