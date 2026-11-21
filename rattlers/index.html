@@ -289,6 +289,7 @@ th.sorted{color:var(--ink)}
 .sub{font-size:12px;color:var(--mute);margin:10px 0 2px;font-weight:700}
 .seg{display:flex;gap:6px;margin:16px 0 8px}
 .seg button{flex:1;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;cursor:pointer}
+.recseg button{font-size:13px;padding:9px 4px;white-space:nowrap;letter-spacing:-.3px}
 .seg button[aria-pressed=true]{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
 .sumrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
 .sumrow div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 4px;text-align:center}
@@ -675,7 +676,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v41 · 야구 멘트';
+const BUILD = 'v42 · 기록 탭 글씨';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -910,7 +911,7 @@ function viewRecord(){
     h += `<div class="sumrow"><div><b>${esc(tv['순위'] || '-')}</b><span>순위</span></div><div><b>${esc(tv['승'] ?? '-')}-${esc(tv['패'] ?? '-')}${tv['무'] && tv['무'] !== '0' ? '-' + esc(tv['무']) : ''}</b><span>승-패</span></div><div><b>${esc(tv['득점'] ?? '-')}</b><span>득점</span></div><div><b>${esc(tv['실점'] ?? '-')}</b><span>실점</span></div></div>`;
     if(tv['리그']) h += `<p class="muted" style="font-size:12px;margin:6px 0 0">${esc(tv['리그'])}</p>`;
   }
-  h += `<div class="seg"><button data-act="rec-sub" data-sub="bat" aria-pressed="${state.recSub === 'bat'}">타자</button><button data-act="rec-sub" data-sub="pit" aria-pressed="${state.recSub === 'pit'}">투수</button><button data-act="rec-sub" data-sub="aw" aria-pressed="${state.recSub === 'aw'}">🏆 시상·전적</button></div>` + (state.recSub === 'aw' ? awardsView() : statTable(state.recSub));
+  h += `<div class="seg recseg"><button data-act="rec-sub" data-sub="bat" aria-pressed="${state.recSub === 'bat'}">타자</button><button data-act="rec-sub" data-sub="pit" aria-pressed="${state.recSub === 'pit'}">투수</button><button data-act="rec-sub" data-sub="aw" aria-pressed="${state.recSub === 'aw'}">🏆 시상·전적</button></div>` + (state.recSub === 'aw' ? awardsView() : statTable(state.recSub));
   return h;
 }
 
