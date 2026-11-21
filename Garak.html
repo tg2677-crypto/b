@@ -873,7 +873,7 @@ function hasBox(key){ return byDate('boxBat', key).length > 0 || byDate('innings
 /* ---------- 스프레이 차트 · 승리 확률 흐름 ---------- */
 // 타석 결과 한 칸 → 방향·종류 (예: 우중2 → 우중간 2루타, 二비 → 2루 뜬공, 좌월홈 → 홈런)
 function paParse(s){
-  s = String(s || '').trim(); if(!s) return null;
+  s = String(s || '').replace(/\u200b/g, '').trim(); if(!s) return null;
   if(/^(4구|볼넷|고4|고의4구)$/.test(s)) return { kind: 'bb' }; if(/^(HP|사구|死球)$/.test(s)) return { kind: 'bb' };
   if(/삼진|낫아웃|^K$/.test(s)) return { kind: 'k' };
   const m = s.match(/^(좌중|우중|좌선|우선|좌|중|우|유|二|三|一|2|3|1|투|포|捕)/); if(!m) return null;
@@ -938,7 +938,7 @@ function wpHtml(g){
   const pct = v => Math.round(v * 100) + '%';
   const rows = pts.slice(1).map(q => `<tr class="${q === big ? 'wpbig' : ''}"><td>${q.lab}</td><td>${q.who === 'us' ? esc(CONFIG.TEAM_NAME) : esc(g['상대팀'])}</td><td>${q.r ? '+' + q.r : '0'}</td><td>${q.su}:${q.st}</td><td>${pct(q.p)}</td><td class="${q.d > 0 ? 'up' : q.d < 0 ? 'dn' : ''}">${q.d > 0 ? '▲' : q.d < 0 ? '▼' : ''}${Math.abs(Math.round(q.d * 100))}</td></tr>`).join('');
   return `<div class="sub">📈 승리 확률 흐름</div>${svg}
-    ${big ? `<div class="tip">⚡ 결정적 장면 · <b>${big.lab}</b> ${big.who === 'us' ? esc(CONFIG.TEAM_NAME) : esc(g['상대팀'])} ${big.r}득점 — 승리 확률 ${pct(big.p - big.d)} → <b>${pct(big.p)}</b>${bigPA.length ? `<div class="wppa">${bigPA.map(r => `<span><b>${esc(r['이름'])}</b> ${esc(String(r['결과']).replace(/,/g, ' → '))}</span>`).join('')}</div>` : ''}</div>` : ''}
+    ${big ? `<div class="tip">⚡ 결정적 장면 · <b>${big.lab}</b> ${big.who === 'us' ? esc(CONFIG.TEAM_NAME) : esc(g['상대팀'])} ${big.r}득점 — 승리 확률 ${pct(big.p - big.d)} → <b>${pct(big.p)}</b>${bigPA.length ? `<div class="wppa">${bigPA.map(r => `<span><b>${esc(r['이름'])}</b> ${esc(String(r['결과']).replace(/\u200b/g, '').replace(/,/g, ' → '))}</span>`).join('')}</div>` : ''}</div>` : ''}
     <div class="tw"><table class="st wpt"><tr><th>이닝</th><th>공격</th><th>득점</th><th>스코어</th><th>승리확률</th><th>변화</th></tr>${rows}</table></div>
     <div class="muted" style="font-size:11px">점수 차와 남은 이닝으로 계산한 근사치예요 (사회인야구 평균 득점 기준).</div>`;
 }
