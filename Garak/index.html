@@ -287,6 +287,7 @@ table.st td.l,table.st th.l{text-align:left}
 th.sortable{cursor:pointer}
 th.sorted{color:var(--ink)}
 .sub{font-size:12px;color:var(--mute);margin:10px 0 2px;font-weight:700}
+.r5d{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.r5d summary{font-weight:800;font-size:14px;cursor:pointer}.r5d h4{margin:12px 0 4px;font-size:13px}table.r5{width:100%;border-collapse:collapse;font-size:11.5px}table.r5 th,table.r5 td{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}table.r5 th{color:var(--mute);font-weight:700}
 .seg{display:flex;gap:6px;margin:16px 0 8px}
 .seg button{flex:1;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;cursor:pointer}
 .recseg button{font-size:13px;padding:9px 4px;white-space:nowrap;letter-spacing:-.3px}
@@ -505,6 +506,7 @@ const CONFIG = {
   MVP_DAYS: 7,
   PREDICT: true,            // 승부 예측 사용 (Apps Script에 predict 기능이 있어야 해요)
   PREDICT_TAB: '승부예측',
+  OPP_RECENT_TAB: '상대최근',   // 상대팀 최근 경기 상세 분석 (있으면 상대팀 분석 카드에 펼쳐보기로 나와요)
   OPP_TAB: '상대분석',       // 상대팀 분석 (자동 가져오기가 채워요. 없으면 지난 맞대결로 계산)              // 경기 후 며칠까지 MVP 투표를 받을지     // MVP 투표가 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_TAB: '참석',      // 참석 응답이 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_URL: 'https://script.google.com/macros/s/AKfycbyDX7E_BbpQkZCZIQ98738nVH-wOL1CGgumLafjXTN6UOd38VMJvnVIfSQKnYjUTJOuZA/exec'  // 참석 체크용 Apps Script 웹 앱 주소
@@ -676,7 +678,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v43 · 결과 카드 코멘트';
+const BUILD = 'v44 · 상대 최근경기 상세';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -703,18 +705,19 @@ async function load(){
   }
   try{
     const recKeys = Object.keys(CONFIG.REC_TABS);
-    const [members, schedule, lineup, attendRaw, votes, preds, opp, ...recRows] = await Promise.all([
+    const [members, schedule, lineup, attendRaw, votes, preds, opp, oppRecent, ...recRows] = await Promise.all([
       ...Object.values(CONFIG.TABS).map(loadTab),
       loadTab(CONFIG.ATTEND_TAB).catch(() => []),
       loadTab(CONFIG.VOTE_TAB).catch(() => []),
       (CONFIG.PREDICT ? loadTab(CONFIG.PREDICT_TAB).catch(() => []) : Promise.resolve([])),
       loadTab(CONFIG.OPP_TAB).then(r => r.length && '상대팀' in r[0] && '구분' in r[0] ? r : []).catch(() => []),
+      loadTab(CONFIG.OPP_RECENT_TAB || '상대최근').then(r => r.length && '상대팀' in r[0] && '구분' in r[0] ? r : []).catch(() => []),
       ...recKeys.map(k => loadTab(CONFIG.REC_TABS[k]).catch(() => []))
     ]);
     const rec = {}; recKeys.forEach((k, i) => rec[k] = recRows[i] || []);
     // 날짜·상대팀이 빈 줄(예: 이닝스코어의 상대팀 줄)은 바로 위 줄 값을 이어받아요
     Object.values(rec).forEach(rows => { let prev = null; rows.forEach(r => { if(!('날짜' in r)) return; if(!String(r['날짜'] || '').trim() && prev){ r['날짜'] = prev['날짜']; if(!String(r['상대팀'] || '').trim()) r['상대팀'] = prev['상대팀']; } else prev = r; }); }); // fillDown
-    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), votes, preds, opp, rec}; applyPending(); state.loaded = true; state.offline = false; state.lastLoad = Date.now();
+    state.data = {members, schedule, lineup, attend: cleanAttend(attendRaw), votes, preds, opp, oppRecent, rec}; applyPending(); state.loaded = true; state.offline = false; state.lastLoad = Date.now();
     writeCache(state.data);
   }catch(e){
     if(state.loaded) state.offline = true;
@@ -1338,6 +1341,20 @@ function oppStatsFromBox(opp){
   Object.entries(pit).forEach(([n, q]) => { const ip = q.o / 3; rows.push({ 구분: '투수', 이름: n, 경기: q.g, 이닝: Math.floor(q.o / 3) + (q.o % 3 ? '.' + (q.o % 3) : ''), _o: q.o, 평균자책: ip ? q.er * 7 / ip : 0, 탈삼진: q.so, 볼넷: q.bb, WHIP: ip ? (q.bb + q.h) / ip : 0 }); });
   return { rows, games: days.size };
 }
+function oppRecentHtml(opp){
+  const rows = (state.data.oppRecent || []).filter(r => normT(r['상대팀']) === normT(opp)); if(!rows.length) return '';
+  const C = r => [1,2,3,4,5,6,7,8,9,10].map(i => r['c' + i] == null ? '' : String(r['c' + i]));
+  const of = k => rows.filter(r => r['구분'] === k).map(C);
+  const g = of('경기'), b = of('타자'), p = of('투수'), pt = rows.filter(r => r['구분'] === '포인트').map(r => r['c1']).filter(Boolean);
+  const tb = (head, data, n) => data.length ? `<div style="overflow-x:auto"><table class="r5"><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${data.map(r => `<tr>${r.slice(0, n).map((v, i) => `<td${i === 0 ? ' style="text-align:left;white-space:nowrap"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}</table></div>` : '';
+  const w = g.filter(r => r[2] === '승').length, l = g.filter(r => r[2] === '패').length;
+  return `<details class="r5d"><summary>📋 최근 ${g.length || ''}경기 상세 분석${g.length ? ` · ${w}승 ${l}패` : ''}</summary>
+    ${pt.length ? `<div class="tip" style="margin-top:8px">${pt.map(esc).join('<br>')}</div>` : ''}
+    ${g.length ? `<h4>🗓 경기별 결과</h4>` + tb(['날짜','상대','결과','점수','이닝별 득점','이닝별 실점','안타','4사구','삼진','도루'], g, 10) : ''}
+    ${b.length ? `<h4>🏏 타자 (최근 경기 합계)</h4>` + tb(['이름','주 타순','포지션','경기','타수','안타','타율','타점','득점','도루'], b, 10) : ''}
+    ${p.length ? `<h4>⚾ 투수 (최근 경기 합계)</h4>` + tb(['이름','등판','이닝','피안타','실점','자책','4사구','삼진','ERA'], p, 9) : ''}
+    <div class="muted" style="font-size:11px;margin-top:6px">ERA는 7이닝 기준 · 4사구는 볼넷+사구</div></details>`;
+}
 function oppCard(g){
   const opp = g['상대팀']; if(!opp) return '';
   const site = (state.data.opp || []).filter(r => normT(r['상대팀']) === normT(opp));
@@ -1384,7 +1401,7 @@ function oppCard(g){
     if(tips.length) body += `<div class="tip">${tips.join('<br>')}</div>`;
   }
   return `<div class="card oppa" style="margin-top:10px"><h3>🔎 상대팀 분석 · ${esc(opp)} <span>${note}</span></h3>${teamLine ? `<div class="os">${teamLine}</div>` : ''}
-    <div class="seg"><button data-act="opp-side" data-side="bat" aria-pressed="${side === 'bat'}">🏏 타자</button><button data-act="opp-side" data-side="pit" aria-pressed="${side === 'pit'}">⚾ 투수</button></div>${body}</div>`;
+    <div class="seg"><button data-act="opp-side" data-side="bat" aria-pressed="${side === 'bat'}">🏏 타자</button><button data-act="opp-side" data-side="pit" aria-pressed="${side === 'pit'}">⚾ 투수</button></div>${body}${oppRecentHtml(opp)}</div>`;
 }
 
 /* ---------- 화면: 일정 ---------- */
