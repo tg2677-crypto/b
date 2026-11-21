@@ -675,7 +675,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v40 · 미응답 대신 참석';
+const BUILD = 'v41 · 야구 멘트';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1332,17 +1332,27 @@ function oppCard(g){
     body = bats.length ? `<table><tr><th>타자</th><th>타율</th><th>출루율</th><th>OPS</th><th>타점</th><th>도루</th></tr>${bats.map((r, i) => `<tr><td>${esc(r['이름'])}${i === 0 ? '<span class="warn">경계</span>' : ''}</td><td>${f3(r.타율)}</td><td>${f3(r.출루율)}</td><td>${r.OPS == null ? '-' : f3(r.OPS)}</td><td>${esc(r['타점'])}</td><td>${esc(r['도루'])}</td></tr>`).join('')}</table>` : '<div class="muted" style="font-size:13px">타자 기록이 없어요.</div>';
     const top = bats[0], speed = bats.slice().sort((a, b) => N(b['도루']) - N(a['도루']))[0], eye = bats.slice().sort((a, b) => b.출루율 - a.출루율)[0];
     const tips = [];
-    if(top) tips.push(`🔥 <b>${esc(top['이름'])}</b> 경계 — ${top.OPS == null ? `타율 ${f3(top.타율)} · 출루율 ${f3(top.출루율)}` : `OPS ${f3(top.OPS)}`}로 가장 위협적. 승부는 신중하게.`);
-    if(speed && N(speed['도루']) >= 3) tips.push(`💨 <b>${esc(speed['이름'])}</b> 도루 ${esc(speed['도루'])}개 — 출루하면 견제·퀵모션 신경 쓰기.`);
-    if(eye && eye !== top && eye.출루율 >= .45) tips.push(`👀 <b>${esc(eye['이름'])}</b> 출루율 ${f3(eye.출루율)} — 볼넷 주지 말고 적극적으로 승부.`);
+    const K = opp + (g._d ? keyOf(g._d) : '');
+    const power = bats.slice().sort((a, b) => N(b['장타율']) - N(a['장타율']))[0];
+    if(top){ const s = top.OPS == null ? `타율 ${f3(top.타율)} · 출루율 ${f3(top.출루율)}` : `OPS ${f3(top.OPS)}`; tips.push(`🔥 <b>${esc(top['이름'])}</b> ${s} — ` + say('top' + K, ['상대 타선의 핵심. 주자 있을 땐 정면승부보다 유인구로.', '이 타자 앞에 주자를 쌓지 않는 게 오늘의 숙제예요.', 'KBO식으로 말하면 ‘클러치 히터’. 위기에선 바깥쪽 낮게.', 'MLB였다면 고의4구 고민할 타자. 1루가 비면 어렵게 승부해요.', '빠른 카운트 승부는 금물. 변화구로 타이밍을 뺏어요.'])); }
+    if(speed && N(speed['도루']) >= 3) tips.push(`💨 <b>${esc(speed['이름'])}</b> 도루 ${esc(speed['도루'])}개 — ` + say('sp' + K, ['출루하면 견제·퀵모션 필수.', '포수는 미리 공 빼는 준비. 투수는 셋포지션 템포를 바꿔요.', '리드 폭이 크면 견제 한두 개로 발을 묶어요.', '내보내면 2루타나 마찬가지. 선두타자로 만나면 꼭 잡아요.']));
+    if(eye && eye !== top && eye.출루율 >= .45) tips.push(`👀 <b>${esc(eye['이름'])}</b> 출루율 ${f3(eye.출루율)} — ` + say('eye' + K, ['공을 잘 고르니 볼넷 주지 말고 존 안에서 승부.', '유인구에 안 속는 타자. 초구부터 스트라이크로 카운트를 잡아요.', '머니볼이 좋아할 유형. 풀카운트까지 가면 불리해요.']));
+    if(power && power !== top && N(power['장타율']) >= .5) tips.push(`💥 <b>${esc(power['이름'])}</b> 장타율 ${f3(N(power['장타율']))} — ` + say('pw' + K, ['외야수는 한두 걸음 뒤로.', '몸쪽 높은 공은 장타 위험. 낮게 낮게.', '한 방이 있는 타자. 실투 하나가 대량 실점으로.']));
+    const teamSb = bats.reduce((s, r) => s + N(r['도루']), 0);
+    if(teamSb >= 25) tips.push(`🏃 주요 타자 도루 합계 ${teamSb}개 — ` + say('tsb' + K, ['전형적인 ‘발야구’ 팀. 내야는 짧은 타구에 빠르게 대시.', 'KBO 육상부 같은 팀이에요. 주자 나가면 배터리 호흡이 승부처.']));
+    tips.push(loreLine('b' + K));
     if(tips.length) body += `<div class="tip">${tips.join('<br>')}</div>`;
   }else{
     body = pits.length ? `<table><tr><th>투수</th><th>등판</th><th>이닝</th><th>ERA</th><th>삼진</th><th>4사구</th><th>WHIP</th></tr>${pits.map(r => `<tr><td>${esc(r['이름'])}</td><td>${esc(r['경기'])}</td><td>${esc(r['이닝'])}</td><td>${f2(r.평균자책)}</td><td>${esc(r['탈삼진'])}</td><td>${esc(r['볼넷'])}</td><td>${f2(r.WHIP)}</td></tr>`).join('')}</table>` : '<div class="muted" style="font-size:13px">투수 기록이 없어요.</div>';
     const ace = pits[0], wild = pits.slice().sort((a, b) => b.WHIP - a.WHIP)[0], k = pits.slice().sort((a, b) => N(b['탈삼진']) - N(a['탈삼진']))[0];
     const tips = [];
-    if(ace) tips.push(`⚾ 선발 유력 <b>${esc(ace['이름'])}</b> — ${esc(ace['이닝'])}이닝 · ERA ${f2(ace.평균자책)} (7이닝 기준)`);
-    if(wild && wild.WHIP >= 2.5) tips.push(`🎯 <b>${esc(wild['이름'])}</b> WHIP ${f2(wild.WHIP)} — 제구가 흔들리니 공을 많이 보기.`);
-    if(k && N(k['탈삼진']) >= 10) tips.push(`🌀 <b>${esc(k['이름'])}</b> 탈삼진 ${esc(k['탈삼진'])}개 — 2스트라이크 이후 짧게 맞히기.`);
+    const K = opp + (g._d ? keyOf(g._d) : '');
+    if(ace) tips.push(`⚾ 선발 유력 <b>${esc(ace['이름'])}</b> — ${esc(ace['이닝'])}이닝 · ERA ${f2(ace.평균자책)} (7이닝 기준). ` + say('ace' + K, ['첫 타석부터 공을 많이 보며 투구 수를 늘려요.', '1회에 흔들릴 때 몰아치는 게 사회인야구 필승법.', '구종·버릇을 1~2이닝 안에 파악해 공유해요.', '초구 스트라이크 비율이 높다면 초구부터 노려요.']));
+    if(wild && wild.WHIP >= 2.5) tips.push(`🎯 <b>${esc(wild['이름'])}</b> WHIP ${f2(wild.WHIP)} — ` + say('wd' + K, ['제구가 흔들리니 공을 많이 보기.', '볼넷이 많은 투수. 2볼부터는 기다리는 게 이득.', '스트라이크 하나 잡기도 버거운 날이 많은 유형. 배트는 신중히.']));
+    if(k && N(k['탈삼진']) >= 10) tips.push(`🌀 <b>${esc(k['이름'])}</b> 탈삼진 ${esc(k['탈삼진'])}개 — ` + say('k' + K, ['2스트라이크 이후 짧게 맞히기.', '결정구를 버리고 카운트 잡는 공을 노려요.', '헛스윙 유도형. 스탠스 넓히고 센터 방향으로.']));
+    const bbAll = pits.reduce((s, r) => s + N(r['볼넷']), 0), ipAll = pits.reduce((s, r) => s + (r._o || 0), 0) / 3;
+    if(ipAll > 0 && bbAll / ipAll >= 1) tips.push(`🧺 투수진 이닝당 4사구 ${(bbAll / ipAll).toFixed(1)}개 — ` + say('bb' + K, ['기다리는 야구가 곧 공격이에요.', '“선두타자 볼넷은 홈런” — 출루하면 적극적으로 뛰어요.', '머니볼처럼 볼 골라 나가는 게 최고의 작전.']));
+    tips.push(loreLine('p' + K));
     if(tips.length) body += `<div class="tip">${tips.join('<br>')}</div>`;
   }
   return `<div class="card oppa" style="margin-top:10px"><h3>🔎 상대팀 분석 · ${esc(opp)} <span>${note}</span></h3>${teamLine ? `<div class="os">${teamLine}</div>` : ''}
@@ -1660,6 +1670,30 @@ function bdPlace(name, slot){
   setSlots(slots);
 }
 function bdRemove(slot){ const slots = { ...state.build.slots }; delete slots[slot]; setSlots(slots); }
+/* ---------- 멘트 은행 (MLB·KBO 야구 상식/전략에서 착안) ---------- */
+function hashS(s){ let h = 7; for(const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+function say(key, arr){ return arr[hashS(key) % arr.length]; }
+const LORE = [
+  '📚 머니볼(오클랜드 A’s) 교훈: 아웃을 안 당하는 게 최고의 공격. 출루율이 곧 득점이에요.',
+  '📚 MLB 통계상 볼카운트 1-0과 0-1의 피OPS 차이는 크게 벌어져요. 초구 스트라이크가 투수의 절반이에요.',
+  '📚 KBO 명언처럼 “야구는 투수 놀음” — 사회인 7이닝에선 볼넷 하나가 곧 실점이에요.',
+  '📚 요기 베라: “끝날 때까지 끝난 게 아니다.” 사회인야구는 콜드 직전에도 뒤집혀요.',
+  '📚 MLB 세이버메트릭스: 무사 1루 번트는 기대득점을 오히려 줄여요. 단, 1점이 급한 막판엔 예외!',
+  '📚 KBO 도루왕들의 공통점: 투수 셋포지션 첫 동작에 스타트. 투구폼 버릇부터 보세요.',
+  '📚 “좋은 수비가 최고의 투수 교체” — 사회인 경기 실점의 상당수는 실책에서 나와요. 기본 포구부터.',
+  '📚 MLB 타격 코치들의 단골 조언: 2스트라이크에선 스탠스 넓히고 센터 방향으로.',
+  '📚 KBO 포수 리드의 기본: 위기에선 바깥쪽 낮게. 장타 허용을 줄이는 가장 확실한 코스예요.',
+  '📚 그렉 매덕스 스타일: 빠른 공보다 제구와 완급. 사회인 타자는 느린 공에 더 약해요.',
+  '📚 MLB 런앤히트 팁: 주자 1루 · 2볼 카운트는 작전 걸기 좋은 타이밍이에요.',
+  '📚 KBO 중계 단골 멘트 “선두타자 볼넷은 홈런과 같다” — 이닝 첫 타자에 집중!',
+  '📚 이치로식 접근: 내야 땅볼도 전력질주. 사회인 내야는 송구 실책 확률이 꽤 높아요.',
+  '📚 MLB 데이터: 투수가 타순을 세 번째 돌 때 피안타율이 크게 올라가요. 3바퀴째 교체 타이밍 체크.',
+  '📚 KBO 감독들이 강조하는 ‘연결’: 4번 앞에 주자를 쌓는 게 2·3번의 역할이에요.',
+  '📚 “야구는 9회 말 2아웃부터” — 사회인은 7회지만, 마지막 아웃까지 집중!',
+  '📚 MLB 수비 시프트 원리: 상대 타구 방향을 기억해 두면 수비 위치 한 걸음이 아웃 하나가 돼요.',
+  '📚 KBO 포수들의 도루 저지 팁: 공 빼는 속도(팝타임)가 어깨보다 중요해요.'
+];
+function loreLine(key){ return `<span class="muted">${say('lore' + key, LORE)}</span>`; }
 function bdCoach(pool){
   const b = state.build, dh = b.dh;
   const n = Math.min(pool.length, dh ? 10 : 9);
@@ -1688,13 +1722,14 @@ function bdCoach(pool){
   const order = [o1, o2, o3, o4].concat(left.sort((a, c) => val(c) - val(a))).filter(Boolean);
   setSlots(slots, order);
   const T = (x, k) => { const r = batRowOf(x); return r ? fmtStat(k, r[k]) : '-'; };
-  if(P) notes.push(`⚾ 마운드는 <b>${nm(P)}</b> — 투수 후보 중 평균자책 ${fmtStat('ERA', era(P))}로 가장 안정적이에요.`);
+  if(P) notes.push(`⚾ 마운드는 <b>${nm(P)}</b> — 평균자책 ${fmtStat('ERA', era(P))}. ` + say('P' + b.key + P, ['투수 후보 중 가장 안정적이에요.', '“야구는 투수 놀음” — 오늘 승부의 열쇠예요.', '초구 스트라이크만 잘 잡아도 절반은 성공.', '매덕스처럼 제구와 완급으로 끌고 가 봐요.']));
   else notes.push('⚾ 투수 기록이 있는 후보가 없어서 투수는 직접 정해 주세요.');
-  if(C) notes.push(`🧤 안방은 <b>${nm(C)}</b> — 포수 자리를 볼 수 있는 선수 중 방망이가 가장 좋아요.`);
-  if(o1) notes.push(`1번 <b>${nm(o1)}</b> — 출루율 ${T(o1, '출루율')}, 나가면 뛰는 리드오프.`);
-  if(o3) notes.push(`3번 <b>${nm(o3)}</b> — OPS ${T(o3, 'OPS')}로 팀 중심.`);
-  if(o4) notes.push(`4번 <b>${nm(o4)}</b> — 장타율 ${T(o4, '장타율')}, 해결사 역할.`);
+  if(C) notes.push(`🧤 안방은 <b>${nm(C)}</b> — ` + say('C' + b.key + C, ['포수 가능 선수 중 방망이가 가장 좋아요.', '투수와 호흡이 오늘의 핵심. 위기엔 바깥쪽 낮게!', '팝타임 빠르게 — 도루 하나 잡으면 흐름이 와요.']));
+  if(o1) notes.push(`1번 <b>${nm(o1)}</b> — 출루율 ${T(o1, '출루율')}. ` + say('1' + b.key + o1, ['나가면 뛰는 리드오프.', '이치로처럼 내야 땅볼도 전력질주!', '선두타자 출루가 오늘 득점의 시작이에요.', '공 많이 보고 상대 투수 구종을 팀에 알려 줘요.']));
+  if(o3) notes.push(`3번 <b>${nm(o3)}</b> — OPS ${T(o3, 'OPS')}. ` + say('3' + b.key + o3, ['팀 최고의 타자를 3번에 — MLB 정석이에요.', '1회부터 타석이 돌아오는 팀의 중심.', '주자 있으면 해결, 없으면 출루. 만능 역할.']));
+  if(o4) notes.push(`4번 <b>${nm(o4)}</b> — 장타율 ${T(o4, '장타율')}. ` + say('4' + b.key + o4, ['KBO 전통의 해결사 자리.', '앞에 쌓인 주자를 쓸어 담아 주세요.', '한 방이 필요할 때 믿고 맡기는 타순.']));
   if(bench.length) notes.push(`아쉽게 벤치: ${bench.slice(0, 3).map(x => `${nm(x)}(OPS ${T(x, 'OPS')}${N((batRowOf(x) || {})['타석']) < 8 ? ', 타석 적음' : ''})`).join(', ')} — 경기 중 대타·교체로 준비.`);
+  notes.push(loreLine('c' + b.key));
   notes.push('<span class="muted">올 시즌 기록과 포지션 정보로 계산한 추천이에요. 타석이 적은 선수는 기록을 낮춰 반영해요. 마음에 안 들면 바로 바꿔 보세요!</span>');
   b.coach = notes;
 }
