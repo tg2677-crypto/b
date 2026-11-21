@@ -712,7 +712,7 @@ async function load(){
       loadTab(CONFIG.VOTE_TAB).catch(() => []),
       (CONFIG.PREDICT ? loadTab(CONFIG.PREDICT_TAB).catch(() => []) : Promise.resolve([])),
       loadTab(CONFIG.OPP_TAB).then(r => r.length && '상대팀' in r[0] && '구분' in r[0] ? r : []).catch(() => []),
-      loadTab(CONFIG.OPP_RECENT_TAB || '상대최근').then(r => r.length && '상대팀' in r[0] && '구분' in r[0] ? r : []).catch(() => []),
+      loadTab(CONFIG.OPP_RECENT_TAB || '상대최근').then(r => r.length && '상대팀' in r[0] && '구분' in r[0] ? r.map(o => { Object.keys(o).forEach(k => { if(typeof o[k] === 'string') o[k] = o[k].replace(/\u200b/g, ''); }); return o; }) : []).catch(() => []),
       ...recKeys.map(k => loadTab(CONFIG.REC_TABS[k]).catch(() => []))
     ]);
     const rec = {}; recKeys.forEach((k, i) => rec[k] = recRows[i] || []);
@@ -1426,9 +1426,9 @@ function matchup(g){
   let op = null;
   if(t){ const b = String(t['비고'] || ''), m = b.match(/(\d+)승\s*(\d+)패(?:\s*(\d+)무)?/), p = b.match(/득점\s*([\d.]+)\s*\/\s*실점\s*([\d.]+)/), G = N(t['경기']);
     if(m && p && G) op = { g: G, w: +m[1], l: +m[2], d: +(m[3] || 0), rf: +p[1] * G, ra: +p[2] * G }; }
-  if(!op && rg.length){ op = { g: 0, w: 0, l: 0, d: 0, rf: 0, ra: 0 }; rg.forEach(r => { const m = String(r['c4']).match(/(\d+)\s*[:\-–]\s*(\d+)/); if(!m) return; op.g++; op.rf += +m[1]; op.ra += +m[2]; if(r['c3'] === '승') op.w++; else if(r['c3'] === '패') op.l++; else op.d++; }); op.recentOnly = true; }
+  if(!op && rg.length){ op = { g: 0, w: 0, l: 0, d: 0, rf: 0, ra: 0 }; rg.forEach(r => { const m = String(r['c4']).match(/(\d+)\s*[:\-–]\s*(\d+)/); if(!m) return; op.g++; op.rf += +m[1]; op.ra += +m[2]; const c3 = String(r['c3']).replace(/\u200b/g, ''); if(c3 === '승') op.w++; else if(c3 === '패') op.l++; else op.d++; }); op.recentOnly = true; }
   if(!us.g || !op || !op.g) return null;
-  const opRecent = rg.map(r => r['c3']).join('');
+  const opRecent = rg.map(r => String(r['c3']).replace(/\u200b/g, '')).join('');
   const uf = us.rf / us.g, ua = us.ra / us.g, of = op.rf / op.g, oa = op.ra / op.g;
   let eu = (uf + oa) / 2, eo = (of + ua) / 2;
   // 최근 흐름 보정 (최근 5경기 승률 차이 × 최대 ±8%)
@@ -1468,11 +1468,11 @@ function matchupHtml(g){
 }
 function oppRecentHtml(opp){
   const rows = (state.data.oppRecent || []).filter(r => normT(r['상대팀']) === normT(opp)); if(!rows.length) return '';
-  const C = r => [1,2,3,4,5,6,7,8,9,10].map(i => r['c' + i] == null ? '' : String(r['c' + i]));
+  const C = r => [1,2,3,4,5,6,7,8,9,10].map(i => r['c' + i] == null ? '' : String(r['c' + i]).replace(/\u200b/g, ''));
   const of = k => rows.filter(r => r['구분'] === k).map(C);
   const g = of('경기'), b = of('타자'), p = of('투수'), pt = rows.filter(r => r['구분'] === '포인트').map(r => r['c1']).filter(Boolean);
   const tb = (head, data, n) => data.length ? `<div style="overflow-x:auto"><table class="r5"><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${data.map(r => `<tr>${r.slice(0, n).map((v, i) => `<td${i === 0 ? ' style="text-align:left;white-space:nowrap"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}</table></div>` : '';
-  const w = g.filter(r => r[2] === '승').length, l = g.filter(r => r[2] === '패').length;
+  const w = g.filter(r => r[2] === '승').length, l = g.filter(r => r[2] === '패').length; // C()가 정리한 값
   return `<details class="r5d"><summary>📋 최근 ${g.length || ''}경기 상세 분석${g.length ? ` · ${w}승 ${l}패` : ''}</summary>
     ${pt.length ? `<div class="tip" style="margin-top:8px">${pt.map(esc).join('<br>')}</div>` : ''}
     ${g.length ? `<h4>🗓 경기별 결과</h4>` + tb(['날짜','상대','결과','점수','이닝별 득점','이닝별 실점','안타','4사구','삼진','도루'], g, 10) : ''}
