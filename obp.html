@@ -287,6 +287,7 @@ table.st td.l,table.st th.l{text-align:left}
 th.sortable{cursor:pointer}
 th.sorted{color:var(--ink)}
 .sub{font-size:12px;color:var(--mute);margin:10px 0 2px;font-weight:700}
+.ms{display:flex;flex-direction:column;gap:8px}.msr{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px}.msr .n{font-weight:800;margin-right:8px;cursor:pointer}.msr .t{font-size:13px}.msr .l{color:#C8262F}.msb{height:6px;background:var(--line);border-radius:4px;margin-top:6px;overflow:hidden}.msb i{display:block;height:100%;background:linear-gradient(90deg,#1F7A4D,#F5B82E)}.sr{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}.sr-top{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;margin-bottom:8px}.sr-top b{display:block;font-size:18px}.sr-top small,.sr-k small{font-size:11px;color:var(--mute)}.sr-r{font-size:13px;padding:5px 0;border-top:1px solid var(--line)}.sr-k{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}.sr-k>div{border:1px solid var(--line);border-radius:10px;padding:6px 8px;display:flex;flex-direction:column}.sr-k b{font-size:15px}.sr-k span{font-size:12px;color:var(--mute)}
 .mu-k{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.mu-k>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}.mu-k small{font-size:11px;color:var(--mute)}.mu-k b{font-size:16px}.mu-k span{font-size:12px}.mu-k em{font-style:normal;font-size:11.5px;color:var(--mute);line-height:1.4}
 .mu{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.mu h4{margin:0 0 8px;font-size:14px}.mu-bar{display:flex;border-radius:10px;overflow:hidden;font-size:12px;font-weight:800;color:#fff}.mu-bar span{padding:7px 8px;white-space:nowrap;overflow:hidden;min-width:0}.mu-bar span:first-child{background:#1F7A4D}.mu-bar span:last-child{background:#B3412E;text-align:right}.mu-sc{text-align:center;margin:8px 0;font-size:14px}.mu-sc b{font-size:20px}table.mu-t{width:100%;border-collapse:collapse;font-size:13px}table.mu-t td,table.mu-t th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:center}table.mu-t th{color:var(--mute);font-weight:600;font-size:12px;width:34%}.mu-b{font-weight:900;color:var(--accent,#1F7A4D)}.mu-t i{display:inline-block;width:18px;height:18px;line-height:18px;border-radius:5px;font-style:normal;font-size:11px;color:#fff;margin:0 1px}.mu-w{background:#1F7A4D}.mu-l{background:#B3412E}.mu-d{background:#6B7A72}.mu-t small{font-size:10px;color:var(--mute)}
 .r5d{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.r5d summary{font-weight:800;font-size:14px;cursor:pointer}.r5d h4{margin:12px 0 4px;font-size:13px}table.r5{width:100%;border-collapse:collapse;font-size:11.5px}table.r5 th,table.r5 td{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}table.r5 th{color:var(--mute);font-weight:700}
@@ -680,7 +681,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v48 · 키플레이어';
+const BUILD = 'v49 · 기록 달성·시즌 결산';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -941,6 +942,84 @@ function awardCard(title, note, list, fmt){
   const rows = list.slice(0, 3).map((x, i) => { const rk = list.findIndex(y => y.v === x.v); return `<div class="awr"><span class="md">${MEDAL[rk] || '·'}</span><span class="n" data-act="member" data-name="${esc(x.n)}">${esc(x.n)}</span><b>${fmt(x.v)}</b></div>`; }).join('');
   return `<div class="aw ${list[0] ? 'top1' : ''}"><h3>${title}</h3><small>${note}</small>${rows}</div>`;
 }
+/* ---------- 기록 달성 임박 · 시즌 결산 ---------- */
+const MILES = { bat: [['총안타', '안타', [10, 20, 30, 50, 70, 100]], ['홈런', '홈런', [1, 3, 5, 10, 20]], ['타점', '타점', [10, 20, 30, 50, 70]], ['득점', '득점', [10, 20, 30, 50, 70]], ['도루', '도루', [10, 20, 30, 40, 50, 70, 100]], ['볼넷', '볼넷', [10, 20, 30, 50]]],
+  pit: [['승', '승', [3, 5, 10, 15]], ['삼진', '탈삼진', [10, 20, 30, 50, 70, 100]]] };
+function milestones(){
+  const out = [];
+  const scan = (rows, defs, unit) => rows.forEach(r => { if(!r['이름']) return; defs.forEach(([k, label, steps]) => { const v = N(r[k]); const goal = steps.find(s => s > v); if(!goal || v <= 0) return; const left = goal - v, near = Math.max(2, Math.ceil(goal * .15)); if(left <= near) out.push({ n: r['이름'], label, v, goal, left, unit: label === '승' ? '승' : label === '홈런' ? '개' : label === '안타' ? '개' : ['타점', '득점', '볼넷'].includes(label) ? '개' : '개', pct: v / goal }); }); });
+  scan(recOf('seasonBat') || [], MILES.bat); scan(recOf('seasonPit') || [], MILES.pit);
+  return out.sort((a, b) => a.left - b.left || b.goal - a.goal);
+}
+function milestoneHtml(){
+  const ms = milestones(); if(!ms.length) return '';
+  return `<h2 style="margin-top:8px">📈 기록 달성 임박</h2><div class="ms">${ms.slice(0, 10).map(m => `<div class="msr"><span class="n" data-act="member" data-name="${esc(m.n)}">${esc(m.n)}</span><span class="t">시즌 ${m.label} <b>${m.goal}${m.label === '승' ? '승' : '개'}</b>까지 <b class="l">${m.left}${m.label === '승' ? '승' : '개'}</b> 남음</span><div class="msb"><i style="width:${Math.round(m.pct * 100)}%"></i></div></div>`).join('')}</div>`;
+}
+function seasonReport(){
+  const y = curYear(), gs = gamesOf().filter(g => String(g._d.getFullYear()) === y && resultInfo(g)).sort((a, b) => a._d - b._d);
+  if(!gs.length) return null;
+  const sc = g => { const m = String(g['점수'] || '').match(/(\d+)\s*[:\-–]\s*(\d+)/); return m ? [+m[1], +m[2]] : null; };
+  let w = 0, l = 0, d = 0, rf = 0, ra = 0, streak = 0, best = 0, bigWin = null, topScore = null;
+  gs.forEach(g => { const r = resultInfo(g), s = sc(g); if(r.cls === 'win'){ w++; streak++; best = Math.max(best, streak); } else { streak = 0; if(r.cls === 'loss') l++; else d++; }
+    if(s){ rf += s[0]; ra += s[1]; if(r.cls === 'win' && (!bigWin || s[0] - s[1] > bigWin.m)) bigWin = { g, s, m: s[0] - s[1] }; if(!topScore || s[0] > topScore.s[0]) topScore = { g, s }; } });
+  const mvps = {}; gs.forEach(g => { const vm = votesOf(keyOf(g._d)), vc = {}; Object.values(vm).forEach(p => vc[p] = (vc[p] || 0) + 1); const top = Object.keys(vc).sort((a, b) => vc[b] - vc[a])[0]; if(top) mvps[top] = (mvps[top] || 0) + 1; });
+  const bat = recOf('seasonBat') || [], pit = recOf('seasonPit') || [];
+  const tg = Math.max(0, ...bat.map(r => N(r['팀게임'])), gs.length), minPA = Math.max(5, Math.round(tg * .7)), minInn = Math.max(3, Math.round(tg * .35));
+  const best1 = (rows, k, ok, asc) => rows.filter(r => r['이름'] && ok(r) && (asc || N(r[k]) > 0)).sort((a, b) => asc ? N(a[k]) - N(b[k]) : N(b[k]) - N(a[k]))[0];
+  const kings = [
+    ['👑 타율왕', best1(bat, '타율', r => N(r['타석']) >= minPA), '타율'], ['🔥 OPS왕', best1(bat, 'OPS', r => N(r['타석']) >= minPA), 'OPS'], ['💪 타점왕', best1(bat, '타점', () => true), '타점'],
+    ['💨 도루왕', best1(bat, '도루', () => true), '도루'], ['💥 홈런왕', best1(bat, '홈런', () => true), '홈런'], ['⚾ 다승왕', best1(pit, '승', () => true), '승'],
+    ['🔪 탈삼진왕', best1(pit, '삼진', () => true), '삼진'], ['🛡️ 방어율왕', best1(pit, 'ERA', r => innNum(r['이닝']) >= minInn, true), 'ERA']
+  ].filter(x => x[1]);
+  const cnt = {}; (state.data.attend || []).forEach(r => { if(r.answer === '참석' && String(r.date).startsWith(y)) cnt[r.name] = (cnt[r.name] || 0) + 1; });
+  const att = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+  const mvp = Object.keys(mvps).sort((a, b) => mvps[b] - mvps[a])[0];
+  return { y, n: gs.length, w, l, d, rf, ra, best, bigWin, topScore, kings, att: att ? [att, cnt[att]] : null, mvp: mvp ? [mvp, mvps[mvp]] : null };
+}
+function seasonReportHtml(){
+  const R = seasonReport(); if(!R) return '';
+  const pct = (R.w + R.l) ? (R.w / (R.w + R.l)).toFixed(3).replace(/^0/, '') : '-';
+  const gl = x => x ? `${fmtDate(x.g._d)} vs ${esc(x.g['상대팀'])} <b>${x.s[0]}:${x.s[1]}</b>` : '-';
+  return `<h2>📊 ${R.y} 시즌 결산</h2><div class="sr">
+    <div class="sr-top"><div><b>${R.w}승 ${R.l}패${R.d ? ' ' + R.d + '무' : ''}</b><small>${R.n}경기 · 승률 ${pct}</small></div><div><b>${R.rf} : ${R.ra}</b><small>총 득점 : 실점</small></div><div><b>${R.best}연승</b><small>최다 연승</small></div></div>
+    ${R.mvp ? `<div class="sr-r">🏅 시즌 MVP 최다 <b>${esc(R.mvp[0])}</b> · ${R.mvp[1]}회</div>` : ''}
+    ${R.att ? `<div class="sr-r">📅 출석왕 <b>${esc(R.att[0])}</b> · ${R.att[1]}회 참석</div>` : ''}
+    <div class="sr-r">🎉 최다 점수차 승리 · ${gl(R.bigWin)}</div><div class="sr-r">💥 최다 득점 경기 · ${gl(R.topScore)}</div>
+    <div class="sr-k">${R.kings.map(([t, r, k]) => `<div><small>${t}</small><b>${esc(r['이름'])}</b><span>${fmtStat(k, r[k])}</span></div>`).join('')}</div>
+    <button class="sharebtn" data-act="share-season" style="margin-top:10px">📤 시즌 결산 카드 공유</button></div>`;
+}
+async function makeSeasonCard(){
+  const R = seasonReport(); if(!R) return null;
+  try{ await document.fonts.ready; }catch(e){}
+  const W = 1080, rows = Math.ceil(R.kings.length / 2), H = 900 + rows * 120 + 60, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'), F = (w, s) => `${w} ${s}px "Noto Sans KR","Apple SD Gothic Neo",sans-serif`;
+  const grd = x.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#0b0b1a'); grd.addColorStop(.6, '#1a1440'); grd.addColorStop(1, '#3a2a10'); x.fillStyle = grd; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#F5B82E'; x.fillRect(0, 0, W, 14);
+  const logo = await loadImg(CONFIG.LOGO); if(logo){ x.save(); x.beginPath(); x.arc(150, 170, 90, 0, Math.PI * 2); x.clip(); x.drawImage(logo, 60, 80, 180, 180); x.restore(); }
+  const lx = logo ? 280 : 70;
+  x.fillStyle = '#fff'; x.font = F(900, 64); x.fillText(CONFIG.TEAM_NAME, lx, 165); x.fillStyle = '#F5B82E'; x.font = F(800, 36); x.fillText(`${R.y} 시즌 결산`, lx, 220);
+  x.fillStyle = '#fff'; x.font = F(900, 110); x.fillText(`${R.w}승 ${R.l}패${R.d ? ' ' + R.d + '무' : ''}`, 70, 400, W - 140);
+  x.fillStyle = '#C9C3E8'; x.font = F(500, 34); x.fillText(`${R.n}경기 · 득점 ${R.rf} · 실점 ${R.ra} · 최다 ${R.best}연승`, 70, 460, W - 140);
+  let y = 540; x.font = F(700, 34);
+  const line = (txt, col) => { x.fillStyle = col || '#EDEFE9'; x.fillText(txt, 70, y, W - 140); y += 56; };
+  if(R.mvp) line(`🏅 시즌 MVP 최다  ${R.mvp[0]} (${R.mvp[1]}회)`, '#F5D27A');
+  if(R.att) line(`📅 출석왕  ${R.att[0]} (${R.att[1]}회)`);
+  if(R.bigWin) line(`🎉 최다 점수차 승리  vs ${R.bigWin.g['상대팀']} ${R.bigWin.s[0]}:${R.bigWin.s[1]}`);
+  if(R.topScore) line(`💥 최다 득점  vs ${R.topScore.g['상대팀']} ${R.topScore.s[0]}:${R.topScore.s[1]}`);
+  y += 20; x.fillStyle = '#9D97C8'; x.font = F(800, 32); x.fillText('🏆 부문별 1위', 70, y); y += 30;
+  R.kings.forEach(([t, r, k], i) => { const cx = i % 2 ? W / 2 + 10 : 70, cy = y + Math.floor(i / 2) * 120; x.fillStyle = 'rgba(255,255,255,.07)'; x.fillRect(cx, cy, W / 2 - 80, 100); x.fillStyle = '#9D97C8'; x.font = F(600, 24); x.fillText(t, cx + 20, cy + 36); x.fillStyle = '#fff'; x.font = F(900, 36); x.fillText(r['이름'], cx + 20, cy + 82, 260); x.fillStyle = '#F5D27A'; x.font = F(800, 32); x.textAlign = 'right'; x.fillText(String(fmtStat(k, r[k])).replace(/&[^;]+;/g, ''), cx + W / 2 - 100, cy + 82); x.textAlign = 'left'; });
+  x.fillStyle = 'rgba(255,255,255,.5)'; x.font = F(500, 24); x.textAlign = 'center'; x.fillText((location.host ? location.host + location.pathname : CONFIG.TEAM_NAME).replace(/index\.html$/, ''), W / 2, H - 24); x.textAlign = 'left';
+  return new Promise(res => c.toBlob(b => res(b), 'image/png'));
+}
+async function shareSeason(){
+  toast('결산 카드 만드는 중…', 8000);
+  const blob = await makeSeasonCard(); if(!blob){ toast('카드를 만들지 못했어요'); return; }
+  const file = new File([blob], `${CONFIG.TEAM_NAME}-${curYear()}-시즌결산.png`, { type: 'image/png' });
+  try{ if(navigator.canShare && navigator.canShare({ files: [file] })){ toast('', 1); await navigator.share({ files: [file], title: `${CONFIG.TEAM_NAME} ${curYear()} 시즌 결산` }); return; } }catch(e){ if(e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob); const box = document.getElementById('lightbox'); box.querySelector('img').src = url; box.classList.add('on');
+  const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  toast('이미지를 저장했어요. 휴대폰에선 사진을 길게 눌러 저장할 수 있어요', 4500);
+}
 function awardsView(){
   const bat = recOf('seasonBat'), pit = recOf('seasonPit');
   if(!bat.length && !pit.length) return `<div class="empty">시즌 기록이 있어야 시상이 나와요.</div>`;
@@ -949,7 +1028,7 @@ function awardsView(){
   const top = (rows, key, ok, asc) => rows.filter(r => r['이름'] && ok(r) && (asc || N(r[key]) > 0)).map(r => ({ n: r['이름'], v: N(r[key]) })).sort((a, b) => asc ? a.v - b.v : b.v - a.v);
   const rate = v => v.toFixed(3).replace(/^0\./, '.'), int = v => String(v);
   const pa = r => N(r['타석']) >= minPA;
-  let h = `<h2 style="margin-top:8px">🏆 시즌 시상</h2><div class="awgrid">`;
+  let h = seasonReportHtml() + milestoneHtml() + `<h2 style="margin-top:8px">🏆 시즌 시상</h2><div class="awgrid">`;
   h += awardCard('👑 타율왕', `${minPA}타석 이상`, top(bat, '타율', pa), rate);
   h += awardCard('🎯 출루왕', `${minPA}타석 이상`, top(bat, '출루율', pa), rate);
   h += awardCard('🔥 OPS왕', `${minPA}타석 이상`, top(bat, 'OPS', pa), rate);
@@ -2196,6 +2275,7 @@ document.addEventListener('click', e => {
   else if(act === 'fbig-bg'){ if(e.target === el) closeBigField(); }
   else if(act === 'share-card'){ shareCard(el.dataset.key); }
   else if(act === 'share-opp'){ shareOpp(el.dataset.key); }
+  else if(act === 'share-season'){ shareSeason(); }
   else if(act === 'pd-close'){ closePlayer(); }
   else if(act === 'pd-bg'){ if(e.target === el) closePlayer(); }
   else if(act === 'mvp-open'){ state.openMvp.add(el.dataset.key); rerenderKeepScroll(); }
