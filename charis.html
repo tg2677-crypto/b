@@ -287,6 +287,7 @@ table.st td.l,table.st th.l{text-align:left}
 th.sortable{cursor:pointer}
 th.sorted{color:var(--ink)}
 .sub{font-size:12px;color:var(--mute);margin:10px 0 2px;font-weight:700}
+.mu-k{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.mu-k>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}.mu-k small{font-size:11px;color:var(--mute)}.mu-k b{font-size:16px}.mu-k span{font-size:12px}.mu-k em{font-style:normal;font-size:11.5px;color:var(--mute);line-height:1.4}
 .mu{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.mu h4{margin:0 0 8px;font-size:14px}.mu-bar{display:flex;border-radius:10px;overflow:hidden;font-size:12px;font-weight:800;color:#fff}.mu-bar span{padding:7px 8px;white-space:nowrap;overflow:hidden;min-width:0}.mu-bar span:first-child{background:#1F7A4D}.mu-bar span:last-child{background:#B3412E;text-align:right}.mu-sc{text-align:center;margin:8px 0;font-size:14px}.mu-sc b{font-size:20px}table.mu-t{width:100%;border-collapse:collapse;font-size:13px}table.mu-t td,table.mu-t th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:center}table.mu-t th{color:var(--mute);font-weight:600;font-size:12px;width:34%}.mu-b{font-weight:900;color:var(--accent,#1F7A4D)}.mu-t i{display:inline-block;width:18px;height:18px;line-height:18px;border-radius:5px;font-style:normal;font-size:11px;color:#fff;margin:0 1px}.mu-w{background:#1F7A4D}.mu-l{background:#B3412E}.mu-d{background:#6B7A72}.mu-t small{font-size:10px;color:var(--mute)}
 .r5d{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.r5d summary{font-weight:800;font-size:14px;cursor:pointer}.r5d h4{margin:12px 0 4px;font-size:13px}table.r5{width:100%;border-collapse:collapse;font-size:11.5px}table.r5 th,table.r5 td{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}table.r5 th{color:var(--mute);font-weight:700}
 .seg{display:flex;gap:6px;margin:16px 0 8px}
@@ -679,7 +680,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v47 · 분석+비교 카드';
+const BUILD = 'v48 · 키플레이어';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1263,7 +1264,7 @@ async function makeOppCard(key){
   const ptLines = pts.map(p => wrap(p, F(500, 28), W - 160));
   const bRows = bats.slice(0, 6), pRows = pits.slice(0, 4);
   const MU0 = matchup(g);
-  const H = 510 + (MU0 ? 600 : 0) + (games.length ? 90 + games.length * 50 : 0) + 90 + bRows.length * 50 + (pRows.length ? 90 + pRows.length * 50 : 0) + (pts.length ? 80 + ptLines.reduce((s, l) => s + l.length * 40 + 12, 0) : 0) + 60;
+  const H = 510 + (MU0 ? 700 : 0) + (games.length ? 90 + games.length * 50 : 0) + 90 + bRows.length * 50 + (pRows.length ? 90 + pRows.length * 50 : 0) + (pts.length ? 80 + ptLines.reduce((s, l) => s + l.length * 40 + 12, 0) : 0) + 60;
   c.width = W; c.height = H;
   const grd = x.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#06110b'); grd.addColorStop(.6, '#0E2418'); grd.addColorStop(1, '#1F3A5A');
   x.fillStyle = grd; x.fillRect(0, 0, W, H); x.fillStyle = '#C8262F'; x.fillRect(0, 0, W, 14);
@@ -1292,7 +1293,9 @@ async function makeOppCard(key){
     const h = M.h, sg = v => (v >= 0 ? '+' : '') + r1(v);
     [['시즌 성적', rec(us), rec(op), cmp(wr(us), wr(op), 1)], ['승률', wp(us), wp(op), cmp(wr(us), wr(op), 1)], ['경기당 득점', r1(M.uf), r1(M.of), cmp(M.uf, M.of, 1)], ['경기당 실점', r1(M.ua), r1(M.oa), cmp(M.ua, M.oa, 0)], ['득실차/경기', sg(M.uf - M.ua), sg(M.of - M.oa), cmp(M.uf - M.ua, M.of - M.oa, 1)], ['최근 5경기', M.usRecent || '-', M.opRecent || '-', 0], ['상대 전적', h.n ? `${h.w}승 ${h.l}패` : '첫 만남', h.n ? `${h.l}승 ${h.w}패` : '', cmp(h.w, h.l, 1)]]
       .forEach(([lb, a, b, bt]) => { x.font = F(500, 24); x.fillStyle = '#9DB5A6'; x.fillText(lb, C, y); x.font = F(bt === 1 ? 900 : 500, 30); x.fillStyle = bt === 1 ? '#7EE2A8' : '#EDEFE9'; x.fillText(a, L, y, 330); x.font = F(bt === -1 ? 900 : 500, 30); x.fillStyle = bt === -1 ? '#7EE2A8' : '#EDEFE9'; x.fillText(b, R, y, 330); y += 50; });
-    x.textAlign = 'left'; y += 40;
+    x.textAlign = 'left'; y += 10;
+    if(M.ku || M.ko){ x.font = F(800, 30); if(M.ku){ x.fillStyle = '#F5D27A'; x.fillText(`⭐ ${CONFIG.TEAM_NAME} 키플레이어  ${M.ku['이름']}  (OPS ${fmtStat('OPS', M.ku['OPS'])})`, 70, y, W - 140); y += 46; } if(M.ko){ x.fillStyle = '#F5A3A3'; x.fillText(`🎯 ${M.opp} 키플레이어  ${M.ko['이름']}  (OPS ${M.ko.OPS == null ? '-' : (+M.ko.OPS).toFixed(3).replace(/^0/, '')})`, 70, y, W - 140); y += 46; } }
+    y += 30;
   }
   const table = (title, head, cols, rows) => {
     x.fillStyle = '#9DB5A6'; x.font = F(800, 32); x.fillText(title, 70, y); y += 50;
@@ -1439,7 +1442,24 @@ function matchup(g){
   p = Math.max(.08, Math.min(.92, p));
   const pu = Math.round(eu), po = Math.round(eo);
   let su = pu, so = po; if(p >= .5 && su <= so) su = so + 1; if(p < .5 && so <= su) so = su + 1;
-  return { opp, us, op, uf, ua, of, oa, usRecent, opRecent, p, su, so, h, key };
+  // 키플레이어: 우리는 참석자 중(없으면 전체) 타석 충분한 OPS 1위, 상대는 분석표 OPS 1위
+  const am = attendMap()[key] || {}, going = Object.keys(am).filter(n => am[n] === '참석');
+  const sbat = (recOf('seasonBat') || []).filter(r => r['이름'] && N(r['타석']) >= 10);
+  const pool = going.length >= 5 ? sbat.filter(r => going.includes(r['이름'])) : sbat;
+  const ku = pool.slice().sort((a, b) => N(b['OPS']) - N(a['OPS']))[0] || null;
+  const ob = (state.oppShare && state.oppShare[key] && state.oppShare[key].bats) || [];
+  const ko = ob[0] || null;
+  return { opp, us, op, uf, ua, of, oa, usRecent, opRecent, p, su, so, h, key, ku, ko, going: going.length };
+}
+function keyLine(M, mine){
+  const K = M.key + (mine ? 'u' : 'o');
+  if(mine){ const r = M.ku, sb = N(r['도루']), obp = N(r['출루율']);
+    return sb >= 10 ? say(K, ['출루하면 바로 뛰어서 상대 배터리를 흔들어 주세요!', '이 선수가 2루에 서 있으면 득점 확률이 확 올라가요.'])
+      : obp >= .5 ? say(K, ['나가기만 하면 득점 — 출루가 오늘의 임무!', '선구안으로 상대 투수 투구 수를 늘려 주세요.'])
+      : say(K, ['찬스에서 해결해 줄 우리 팀 해결사!', '이 선수 앞에 주자를 쌓는 게 오늘의 작전이에요.', '오늘 경기의 키 — 첫 타석부터 자신 있게!']); }
+  const r = M.ko, sb = N(r['도루']);
+  return sb >= 10 ? say(K, ['출루를 막는 게 최우선. 나가면 견제와 퀵모션으로 묶어요.', '발이 빠른 타자 — 볼넷은 2루타나 마찬가지예요.'])
+    : say(K, ['주자 있을 때는 정면승부 금물. 유인구로 어렵게 승부!', '이 타자만 막으면 상대 공격이 끊겨요.', '상대 타선의 핵심 — 앞 타자를 내보내지 않는 게 포인트.']);
 }
 function matchupHtml(g){
   const M = matchup(g); if(!M) return '';
@@ -1463,6 +1483,7 @@ function matchupHtml(g){
     ${row('득실차/경기', (uf - ua >= 0 ? '+' : '') + r1(uf - ua), (of - oa >= 0 ? '+' : '') + r1(of - oa), cmp(uf - ua, of - oa, 1))}
     ${row('최근 5경기', dot(M.usRecent), dot(M.opRecent), 0)}
     ${row('상대 전적', h.n ? `${h.w}승 ${h.l}패${h.d ? ' ' + h.d + '무' : ''}` : '첫 만남', h.n ? `${h.l}승 ${h.w}패${h.d ? ' ' + h.d + '무' : ''}` : '', cmp(h.w, h.l, 1))}</table>
+    ${M.ku || M.ko ? `<div class="mu-k">${M.ku ? `<div><small>${esc(CONFIG.TEAM_NAME)} 키플레이어</small><b>⭐ ${esc(M.ku['이름'])}</b><span>OPS ${fmtStat('OPS', M.ku['OPS'])} · 타율 ${fmtStat('타율', M.ku['타율'])}${N(M.ku['도루']) ? ' · 도루 ' + N(M.ku['도루']) : ''}</span><em>${keyLine(M, 1)}</em></div>` : ''}${M.ko ? `<div><small>${esc(M.opp)} 키플레이어</small><b>🎯 ${esc(M.ko['이름'])}</b><span>OPS ${M.ko.OPS == null ? '-' : (+M.ko.OPS).toFixed(3).replace(/^0/, '')} · 타율 ${(+M.ko.타율).toFixed(3).replace(/^0/, '')}${N(M.ko['도루']) ? ' · 도루 ' + N(M.ko['도루']) : ''}</span><em>${keyLine(M, 0)}</em></div>` : ''}</div>` : ''}
     <div class="tip">🤖 ${verdict}</div>
     <div class="muted" style="font-size:11px;margin-top:4px">양 팀 경기당 득점·실점으로 예상 득점을 계산하고(피타고리안 기대승률), 최근 흐름·상대 전적을 조금 반영했어요. 재미로 봐 주세요!</div></div>`;
 }
