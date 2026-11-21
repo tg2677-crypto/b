@@ -675,7 +675,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = '2026-11-21 상대팀 분석 v39';
+const BUILD = 'v40 · 미응답 대신 참석';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1870,6 +1870,8 @@ function viewBuilder(){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><h2 style="margin:0">후보 <span class="muted" style="font-size:13px">${cands.length}명</span></h2>
       <div class="seg" style="margin:0;width:190px"><button data-act="bd-pool" data-pool="att" aria-pressed="${b.pool === 'att'}" style="padding:6px">참석자 ${attN}</button><button data-act="bd-pool" data-pool="all" aria-pressed="${b.pool === 'all'}" style="padding:6px">전체</button></div></div>
     <div class="cands" id="bd-pool">${candHtml}</div>
+    ${(() => { const nr = state.data.members.map(m => m['이름']).filter(n => n && !am[n]); return nr.length && (CONFIG.ATTEND_URL || state.demo) ? `<details class="bd-noresp" style="margin-top:10px"><summary style="font-size:13px;font-weight:700;cursor:pointer">✋ 미응답 ${nr.length}명 · 대신 참석 처리하기</summary><p class="muted" style="font-size:12px;margin:6px 0">누르면 그 팀원을 <b>참석</b>으로 시트에 기록하고 후보에 넣어요. 다시 누르면 취소돼요.</p><div class="cands">${nr.map(n => `<div class="cand" data-act="bd-attend" data-name="${esc(n)}">${esc(n)}</div>`).join('')}</div></details>` : ''; })()}
+    ${(() => { const mk = (state.build && state.build.manual) || []; const on = mk.filter(n => am[n] === '참석'); return on.length ? `<div class="muted" style="font-size:12px;margin-top:6px">✋ 대신 참석 처리: ${on.map(n => `${esc(n)} <button class="bd-btn" data-act="bd-unattend" data-name="${esc(n)}" style="padding:1px 6px">취소</button>`).join(' ')}</div>` : ''; })()}
     <h2 style="margin-top:18px">타순 <span class="muted" style="font-size:13px">${b.order.length}명</span></h2>${orderHtml}${b.slots.DH && b.slots.P ? `<div class="bo" style="opacity:.75"><div class="no">투</div><div class="nm">${esc(b.slots.P)}<small>투수 · 지타 사용으로 타순에서 제외</small></div></div>` : ''}
     <div class="bd-bar" style="margin-top:10px"><button class="hot" data-act="bd-save">☁️ 시트에 저장</button><button data-act="bd-lock">🔒 잠그기</button><button class="hot" data-act="bd-copy">📤 복사하기 (단톡방용)</button></div>
     <p class="muted" style="font-size:12px">작업 중인 라인업은 이 기기에 자동 저장돼요. “시트에 저장”을 누르면 팀원 모두의 “라인업 보기”에 반영돼요.</p>`;
@@ -2008,6 +2010,16 @@ document.addEventListener('click', e => {
     if(act === 'bd-key'){ state.build = null; state.build = { key: el.dataset.key, pool: 'att', slots: {}, order: [], dh: true, sel: null }; const d = readDrafts()[el.dataset.key]; if(d){ state.build.slots = d.slots; state.build.order = d.order; state.build.dh = d.dh !== false; } if(!Object.values(attendMap()[el.dataset.key] || {}).some(v => v === '참석')) state.build.pool = 'all'; }
     else if(act === 'bd-dh'){ b.dh = el.checked; if(!b.dh && b.slots.DH) bdRemove('DH'); saveDraft(); }
     else if(act === 'bd-pool') b.pool = el.dataset.pool;
+    else if(act === 'bd-attend' || act === 'bd-unattend'){
+      const n = el.dataset.name, ans = act === 'bd-attend' ? '참석' : '';
+      state.data.attend = (state.data.attend || []).filter(r => !(r.date === b.key && r.name === n));
+      state.data.attend.push({ date: b.key, name: n, answer: ans || '미정' });
+      b.manual = (b.manual || []).filter(x => x !== n); if(ans) b.manual.push(n);
+      if(ans && b.pool !== 'att') b.pool = 'att';
+      render();
+      if(!state.demo) sendAttend(b.key, n, ans || '미정').then(() => toast(ans ? `${n} 참석으로 기록했어요` : `${n} 참석을 취소했어요 (미정)`)).catch(e => toast('시트에 기록하지 못했어요: ' + (e.message || e), 4000));
+      return;
+    }
     else if(act === 'bd-cand') b.sel = (b.sel && b.sel.name === el.dataset.name && !b.sel.from) ? null : { name: el.dataset.name, from: '' };
     else if(act === 'bd-slot'){
       const slot = el.dataset.slot;
