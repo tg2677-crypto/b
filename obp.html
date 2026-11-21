@@ -617,8 +617,8 @@ function loadTabJsonp(name){
 }
 // 위 방식이 막힌 환경을 위한 두 번째 방법 (CSV 요청)
 async function loadTabCsv(name){
-  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`;
-  const res = await fetch(url);
+  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&_=${Date.now()}`;
+  const res = await fetch(url, { cache: 'no-store' });
   if(!res.ok) throw new Error(`"${name}" 탭을 읽지 못했어요 (${res.status})`);
   const text = await res.text();
   if(/^\s*<(!doctype|html)/i.test(text)) throw new Error(`"${name}" 탭이 구글 로그인 화면으로 연결돼요. 시트 공유 설정을 확인해 주세요`);
@@ -682,7 +682,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v50 · 누적·통산 성적';
+const BUILD = 'v51 · 새로고침 개선';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -698,6 +698,17 @@ const CACHE_KEY = 'team-cache-' + CONFIG.SHEET_ID;
 function readCache(){ try{ return JSON.parse(localStorage.getItem(CACHE_KEY)); }catch(e){ return null; } }
 function writeCache(d){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(d)); }catch(e){} }
 
+// 새로고침: 페이지가 새 버전이면 페이지를 다시 받고, 아니면 시트 데이터를 새로 읽어요
+async function hardReload(){
+  toast('새로 불러오는 중…', 6000);
+  try{
+    const html = await fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
+    const m = html.match(/const BUILD = '([^']*)'/);
+    if(m && m[1] !== BUILD){ try{ localStorage.removeItem(CACHE_KEY); }catch(e){} location.replace(location.pathname + '?v=' + Date.now() + location.hash); return; }
+  }catch(e){}
+  await load();
+  toast(state.error ? '불러오지 못했어요: ' + state.error : '최신 내용으로 불러왔어요', 3000);
+}
 async function load(){
   state.error = null;
   if(!CONFIG.SHEET_ID){
@@ -2289,7 +2300,7 @@ document.addEventListener('click', e => {
   if(!el) return;
   const act = el.dataset.act;
   if(act === 'tab'){ state.tab = el.dataset.tab; render(); window.scrollTo(0, 0); }
-  else if(act === 'reload'){ load(); }
+  else if(act === 'reload'){ hardReload(); }
   else if(act === 'home'){ closePlayer(); closeBigField(); document.getElementById('lightbox').classList.remove('on'); state.tab = 'schedule'; state.more.up = false; state.more.past = false; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   else if(act === 'member'){ openPlayer(el.dataset.name); }
   else if(act === 'fbig-open'){ openBigField(el.dataset.key); }
