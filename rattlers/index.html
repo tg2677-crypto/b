@@ -679,7 +679,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v46 · 전력 비교·AI 예측';
+const BUILD = 'v47 · 분석+비교 카드';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1262,7 +1262,8 @@ async function makeOppCard(key){
   const wrap = (txt, font, maxW) => { x.font = font; const out = []; let line = ''; for(const ch of txt){ if(x.measureText(line + ch).width > maxW && line){ out.push(line); line = ch; } else line += ch; } if(line) out.push(line); return out; };
   const ptLines = pts.map(p => wrap(p, F(500, 28), W - 160));
   const bRows = bats.slice(0, 6), pRows = pits.slice(0, 4);
-  const H = 510 + (games.length ? 90 + games.length * 50 : 0) + 90 + bRows.length * 50 + (pRows.length ? 90 + pRows.length * 50 : 0) + (pts.length ? 80 + ptLines.reduce((s, l) => s + l.length * 40 + 12, 0) : 0) + 60;
+  const MU0 = matchup(g);
+  const H = 510 + (MU0 ? 560 : 0) + (games.length ? 90 + games.length * 50 : 0) + 90 + bRows.length * 50 + (pRows.length ? 90 + pRows.length * 50 : 0) + (pts.length ? 80 + ptLines.reduce((s, l) => s + l.length * 40 + 12, 0) : 0) + 60;
   c.width = W; c.height = H;
   const grd = x.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#06110b'); grd.addColorStop(.6, '#0E2418'); grd.addColorStop(1, '#1F3A5A');
   x.fillStyle = grd; x.fillRect(0, 0, W, H); x.fillStyle = '#C8262F'; x.fillRect(0, 0, W, 14);
@@ -1275,6 +1276,24 @@ async function makeOppCard(key){
   const MU = matchup(g); if(MU){ x.fillStyle = '#fff'; x.font = F(800, 32); x.fillText(`🤖 AI 예측  ${CONFIG.TEAM_NAME} ${Math.round(MU.p * 100)}% : ${Math.round((1 - MU.p) * 100)}%  ·  예상 ${MU.su}:${MU.so}`, 70, 390, W - 140); }
   if(games.length){ const w = games.filter(r => r['c3'] === '승').length, l = games.filter(r => r['c3'] === '패').length; x.fillStyle = '#F5D27A'; x.font = F(800, 34); x.fillText(`최근 ${games.length}경기 ${w}승 ${l}패`, 70, 340); }
   let y = 460;
+  if(MU0){
+    const M = MU0, us = M.us, op = M.op, r1 = v => v.toFixed(1), wp = o => (o.w + o.l) ? (o.w / (o.w + o.l)).toFixed(3).replace(/^0/, '') : '-';
+    x.fillStyle = '#9DB5A6'; x.font = F(800, 32); x.fillText('⚖️ 전력 비교', 70, y); y += 30;
+    // 확률 막대
+    const bw = W - 140, pw = Math.round(bw * M.p);
+    x.fillStyle = '#1F7A4D'; x.fillRect(70, y, pw, 56); x.fillStyle = '#B3412E'; x.fillRect(70 + pw, y, bw - pw, 56);
+    x.fillStyle = '#fff'; x.font = F(800, 28); x.fillText(`${CONFIG.TEAM_NAME} ${Math.round(M.p * 100)}%`, 86, y + 38, Math.max(120, pw - 20)); x.textAlign = 'right'; x.fillText(`${Math.round((1 - M.p) * 100)}% ${M.opp}`, W - 86, y + 38, Math.max(120, bw - pw - 20)); x.textAlign = 'left';
+    y += 100;
+    const L = 250, C = W / 2, R = W - 250;
+    x.font = F(800, 30); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(CONFIG.TEAM_NAME, L, y, 300); x.fillText(M.opp, R, y, 300); y += 14;
+    x.fillStyle = 'rgba(255,255,255,.15)'; x.fillRect(70, y, W - 140, 2); y += 44;
+    const cmp = (a, b, hi) => a === b ? 0 : (hi ? (a > b ? 1 : -1) : (a < b ? 1 : -1));
+    const rec = o => `${o.w}승 ${o.l}패${o.d ? ' ' + o.d + '무' : ''}`, wr = o => o.w / Math.max(1, o.w + o.l);
+    const h = M.h, sg = v => (v >= 0 ? '+' : '') + r1(v);
+    [['시즌 성적', rec(us), rec(op), cmp(wr(us), wr(op), 1)], ['승률', wp(us), wp(op), cmp(wr(us), wr(op), 1)], ['경기당 득점', r1(M.uf), r1(M.of), cmp(M.uf, M.of, 1)], ['경기당 실점', r1(M.ua), r1(M.oa), cmp(M.ua, M.oa, 0)], ['득실차/경기', sg(M.uf - M.ua), sg(M.of - M.oa), cmp(M.uf - M.ua, M.of - M.oa, 1)], ['최근 5경기', M.usRecent || '-', M.opRecent || '-', 0], ['상대 전적', h.n ? `${h.w}승 ${h.l}패` : '첫 만남', h.n ? `${h.l}승 ${h.w}패` : '', cmp(h.w, h.l, 1)]]
+      .forEach(([lb, a, b, bt]) => { x.font = F(500, 24); x.fillStyle = '#9DB5A6'; x.fillText(lb, C, y); x.font = F(bt === 1 ? 900 : 500, 30); x.fillStyle = bt === 1 ? '#7EE2A8' : '#EDEFE9'; x.fillText(a, L, y, 330); x.font = F(bt === -1 ? 900 : 500, 30); x.fillStyle = bt === -1 ? '#7EE2A8' : '#EDEFE9'; x.fillText(b, R, y, 330); y += 50; });
+    x.textAlign = 'left'; y += 40;
+  }
   const table = (title, head, cols, rows) => {
     x.fillStyle = '#9DB5A6'; x.font = F(800, 32); x.fillText(title, 70, y); y += 50;
     x.font = F(700, 24); x.fillStyle = '#9DB5A6'; head.forEach((h, i) => { x.textAlign = i ? 'center' : 'left'; x.fillText(h, cols[i], y); }); y += 12;
