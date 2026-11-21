@@ -1,0 +1,614 @@
+/**
+ * 참석 체크 + 라인업 저장용 Apps Script (가락불스·카리스 시트에 똑같이 붙여넣기)
+ * 사용법: 시트 → 확장 프로그램 → Apps Script → 이 코드 전체 붙여넣기 → 저장 → 배포
+ * 배포: 새 배포 → 유형 "웹 앱" → 실행 사용자 "나" → 액세스 권한 "모든 사용자" → 배포 → 웹 앱 URL 복사
+ */
+// ★ 라인업 만들기·수정 비밀번호 (꼭 원하는 값으로 바꿔 주세요. 바꾼 뒤 다시 배포해야 적용돼요)
+const LINEUP_PASSWORD = '2677';
+
+const SHEET_NAME = '참석';
+const HEADERS = ['날짜', '이름', '응답', '기록시각'];
+const ANSWERS = ['참석', '불참', '미정'];
+
+function getAttendSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_NAME);
+    sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold');
+    sh.getRange('A:D').setNumberFormat('@');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const d = JSON.parse(e.postData.contents);
+    if (d.action === 'verify') {
+      return String(d.password || '') === LINEUP_PASSWORD ? out_({ ok: true }) : out_({ ok: false, code: 'auth', error: '비밀번호가 틀렸어요' });
+    }
+    if (d.action === 'lineup') {
+      if (String(d.password || '') !== LINEUP_PASSWORD) return out_({ ok: false, code: 'auth', error: '비밀번호가 틀렸어요' });
+      return saveLineup_(d);
+    }
+    if (d.action === 'vote') return saveVote_(d);
+    if (d.action === 'predict') return savePredict_(d);
+    if (d.action === 'import') {
+      if (String(d.password || '') !== LINEUP_PASSWORD) return out_({ ok: false, code: 'auth', error: '비밀번호가 틀렸어요' });
+      return importTabs_(d);
+    }
+    const date = String(d.date || '').trim();
+    const name = String(d.name || '').trim();
+    const answer = String(d.answer || '').trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return out_({ ok: false, error: '날짜 형식이 올바르지 않아요' });
+    if (ANSWERS.indexOf(answer) < 0) return out_({ ok: false, error: '응답 값이 올바르지 않아요' });
+
+    // 팀원 탭에 있는 이름만 받아요
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const mem = ss.getSheetByName('팀원');
+    const names = mem && mem.getLastRow() > 1
+      ? mem.getRange(2, 1, mem.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
+      : [];
+    if (names.indexOf(name) < 0) return out_({ ok: false, error: '팀원 명단에 없는 이름이에요' });
+
+    const sh = getAttendSheet_();
+    const last = sh.getLastRow();
+    let row = 0;
+    if (last > 1) {
+      const vals = sh.getRange(2, 1, last - 1, 2).getValues();
+      for (let i = 0; i < vals.length; i++) {
+        if (String(vals[i][0]).trim() === date && String(vals[i][1]).trim() === name) { row = i + 2; break; }
+      }
+    }
+    if (!row) row = last + 1;
+    const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+    sh.getRange(row, 1, 1, 4).setNumberFormat('@').setValues([[date, name, answer, now]]);
+    return out_({ ok: true });
+  } catch (err) {
+    return out_({ ok: false, error: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function doGet() { return out_({ ok: true, msg: '참석 체크 주소가 정상 동작 중이에요' }); }
+
+function out_(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * 라인업 저장: 페이지의 "시트에 저장" 버튼이 호출해요.
+ * '라인업' 탭에서 같은 날짜의 줄을 지우고 새 라인업(날짜/타순/이름/포지션/비고)을 넣어요.
+ */
+function saveLineup_(d) {
+  const date = String(d.date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return out_({ ok: false, error: '날짜 형식이 올바르지 않아요' });
+  const rows = (d.rows || []).slice(0, 30);
+  if (!rows.length) return out_({ ok: false, error: '저장할 라인업이 비어 있어요' });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mem = ss.getSheetByName('팀원');
+  const names = mem && mem.getLastRow() > 1
+    ? mem.getRange(2, 1, mem.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
+    : [];
+  const out = [];
+  for (let i = 0; i < rows.length; i++) {
+    const nm = String(rows[i].name || '').trim();
+    if (names.indexOf(nm) < 0) return out_({ ok: false, error: '팀원 명단에 없는 이름이 있어요: ' + nm });
+    const ord = String(rows[i].order).trim() === '-' ? '-' : (Number(rows[i].order) || (i + 1));   // '-' = 타순 없음(지타 사용 시 투수)
+    out.push([date, ord, nm, String(rows[i].pos || '').trim(), '']);
+  }
+  let sh = ss.getSheetByName('라인업');
+  if (!sh) {
+    sh = ss.insertSheet('라인업');
+    sh.getRange(1, 1, 1, 5).setValues([['날짜', '타순', '이름', '포지션', '비고']]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  // 헤더 위치를 찾아서 열 순서가 달라도 맞게 넣어요
+  const head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 5)).getValues()[0].map(function (h) { return String(h).trim(); });
+  const col = function (n) { return head.indexOf(n); };
+  const iD = col('날짜'), iO = col('타순'), iN = col('이름'), iP = col('포지션');
+  if (iD < 0 || iO < 0 || iN < 0 || iP < 0) return out_({ ok: false, error: "'라인업' 탭 첫 줄에 날짜/타순/이름/포지션 제목이 있어야 해요" });
+  const tz = ss.getSpreadsheetTimeZone();
+  // 같은 날짜의 기존 줄 삭제 (아래에서 위로)
+  const last = sh.getLastRow();
+  if (last > 1) {
+    const vals = sh.getRange(2, iD + 1, last - 1, 1).getValues();
+    for (let r = vals.length - 1; r >= 0; r--) {
+      const v = vals[r][0];
+      const s = v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v).trim();
+      if (s === date) sh.deleteRow(r + 2);
+    }
+  }
+  const start = sh.getLastRow() + 1;
+  const width = head.length;
+  const block = out.map(function (o) {
+    const row = new Array(width).fill('');
+    row[iD] = o[0]; row[iO] = o[1]; row[iN] = o[2]; row[iP] = o[3];
+    return row;
+  });
+  sh.getRange(start, iD + 1, block.length, 1).setNumberFormat('@');
+  sh.getRange(start, 1, block.length, width).setValues(block);
+  return out_({ ok: true, saved: block.length });
+}
+
+/**
+ * ───────── 경기 기록 미반영 알림 (무료 · 토큰 사용 없음) ─────────
+ * 매일 아침 9시에 '일정' 탭을 보고, 경기 날짜가 지났는데 '결과'가 비어 있는 경기가 있으면
+ * 시트 주인에게 메일로 알려줘요. 메일을 받으면 Claude에게 "기록 가져와"라고 말하면 돼요.
+ *
+ * 처음 한 번만: 편집기 위쪽 함수 선택에서 setupDailyCheck 를 고르고 ▶ 실행 → 권한 허용
+ * (끄고 싶으면 removeDailyCheck 실행)
+ */
+function setupDailyCheck() {
+  removeDailyCheck();
+  ScriptApp.newTrigger('checkUnrecordedGames').timeBased().atHour(9).everyDays(1).inTimezone('Asia/Seoul').create();
+  checkUnrecordedGames();   // 설정하자마자 한 번 확인해요
+}
+function removeDailyCheck() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'checkUnrecordedGames') ScriptApp.deleteTrigger(t);
+  });
+}
+function checkUnrecordedGames() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('일정');
+  if (!sh || sh.getLastRow() < 2) return;
+  const tz = 'Asia/Seoul';
+  const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+  const iD = head.indexOf('날짜'), iO = head.indexOf('상대팀'), iR = head.indexOf('결과');
+  if (iD < 0 || iO < 0 || iR < 0) return;
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues();
+  const props = PropertiesService.getScriptProperties();
+  const missing = [];
+  rows.forEach(function (r) {
+    const v = r[iD];
+    const d = v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d >= today) return;         // 아직 안 한 경기는 제외
+    if (String(r[iR]).trim() !== '') return;                           // 결과가 있으면 반영된 경기
+    const key = 'notified_' + d;
+    const last = Number(props.getProperty(key) || 0);
+    if (Date.now() - last < 3 * 86400000) return;                      // 같은 경기는 3일에 한 번만 알려요
+    missing.push({ d: d, opp: String(r[iO]).trim(), key: key });
+  });
+  if (!missing.length) return;
+  const to = Session.getEffectiveUser().getEmail();
+  const lines = missing.map(function (m) { return '· ' + m.d + ' vs ' + m.opp; }).join('\n');
+  MailApp.sendEmail(to, '[' + ss.getName() + '] 기록이 아직 반영되지 않은 경기 ' + missing.length + '개',
+    '경기는 끝났는데 일정 탭의 결과가 비어 있어요.\n\n' + lines +
+    '\n\n유니크플레이에 기록이 올라왔다면 Claude에게 "기록 가져와"라고 말해 주세요.');
+  missing.forEach(function (m) { props.setProperty(m.key, String(Date.now())); });
+}
+
+/**
+ * MVP 투표: 페이지의 투표 버튼이 호출해요. 'MVP투표' 탭에 (날짜, 투표자, 후보, 기록시각)으로 저장하고,
+ * 같은 사람이 같은 경기에 다시 투표하면 덮어써요.
+ */
+function saveVote_(d) {
+  const date = String(d.date || '').trim(), voter = String(d.voter || '').trim(), pick = String(d.pick || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return out_({ ok: false, error: '날짜 형식이 올바르지 않아요' });
+  if (voter === pick) return out_({ ok: false, error: '자기 자신에게는 투표할 수 없어요' });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mem = ss.getSheetByName('팀원');
+  const names = mem && mem.getLastRow() > 1
+    ? mem.getRange(2, 1, mem.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
+    : [];
+  if (names.indexOf(voter) < 0 || names.indexOf(pick) < 0) return out_({ ok: false, error: '팀원 명단에 없는 이름이에요' });
+  let sh = ss.getSheetByName('MVP투표');
+  if (!sh) {
+    sh = ss.insertSheet('MVP투표');
+    sh.getRange(1, 1, 1, 4).setValues([['날짜', '투표자', '후보', '기록시각']]).setFontWeight('bold');
+    sh.getRange('A:D').setNumberFormat('@');
+    sh.setFrozenRows(1);
+  }
+  const last = sh.getLastRow();
+  let row = 0;
+  if (last > 1) {
+    const vals = sh.getRange(2, 1, last - 1, 2).getValues();
+    for (let i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]).trim() === date && String(vals[i][1]).trim() === voter) { row = i + 2; break; }
+    }
+  }
+  if (!row) row = last + 1;
+  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+  sh.getRange(row, 1, 1, 4).setNumberFormat('@').setValues([[date, voter, pick, now]]);
+  return out_({ ok: true });
+}
+
+/**
+ * 승부 예측: '승부예측' 탭에 (날짜, 이름, 우리, 상대, 기록시각) 저장. 같은 사람이 다시 보내면 덮어써요.
+ * 일정 탭의 경기 시작 시각이 지나면 받지 않아요.
+ */
+function savePredict_(d) {
+  const date = String(d.date || '').trim(), name = String(d.name || '').trim();
+  const us = Number(d.us), them = Number(d.them);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return out_({ ok: false, error: '날짜 형식이 올바르지 않아요' });
+  if (!(us >= 0 && us <= 99 && them >= 0 && them <= 99) || us % 1 || them % 1) return out_({ ok: false, error: '점수가 올바르지 않아요' });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mem = ss.getSheetByName('팀원');
+  const names = mem && mem.getLastRow() > 1
+    ? mem.getRange(2, 1, mem.getLastRow() - 1, 1).getValues().map(function (r) { return String(r[0]).trim(); })
+    : [];
+  if (names.indexOf(name) < 0) return out_({ ok: false, error: '팀원 명단에 없는 이름이에요' });
+  // 경기 시작 시각 확인
+  const sc = ss.getSheetByName('일정');
+  if (sc && sc.getLastRow() > 1) {
+    const head = sc.getRange(1, 1, 1, sc.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+    const iD = head.indexOf('날짜'), iT = head.indexOf('시간');
+    const rows = sc.getRange(2, 1, sc.getLastRow() - 1, head.length).getValues();
+    for (let i = 0; i < rows.length; i++) {
+      const v = rows[i][iD];
+      const ds = v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd') : String(v).trim();
+      if (ds !== date) continue;
+      let hm = '00:00';
+      if (iT >= 0) { const t = rows[i][iT]; hm = t instanceof Date ? Utilities.formatDate(t, 'Asia/Seoul', 'HH:mm') : (String(t).match(/\d{1,2}:\d{2}/) || ['00:00'])[0]; }
+      const start = new Date(date + 'T' + (hm.length === 4 ? '0' + hm : hm) + ':00+09:00');
+      if (new Date() >= start) return out_({ ok: false, error: '경기가 시작돼서 예측이 마감됐어요' });
+    }
+  }
+  let sh = ss.getSheetByName('승부예측');
+  if (!sh) {
+    sh = ss.insertSheet('승부예측');
+    sh.getRange(1, 1, 1, 5).setValues([['날짜', '이름', '우리', '상대', '기록시각']]).setFontWeight('bold');
+    sh.getRange('A:B').setNumberFormat('@');
+    sh.setFrozenRows(1);
+  }
+  const last = sh.getLastRow();
+  let row = 0;
+  if (last > 1) {
+    const vals = sh.getRange(2, 1, last - 1, 2).getValues();
+    for (let i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]).trim() === date && String(vals[i][1]).trim() === name) { row = i + 2; break; }
+    }
+  }
+  if (!row) row = last + 1;
+  const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+  sh.getRange(row, 1, 1, 2).setNumberFormat('@');
+  sh.getRange(row, 1, 1, 5).setValues([[date, name, us, them, now]]);
+  return out_({ ok: true });
+}
+
+/**
+ * 기록 가져오기: 비밀번호를 확인하고, 보낸 탭들의 내용을 통째로 바꿔요. (일정·박스스코어·시즌 기록 등)
+ * d.tabs = { '탭이름': [[제목...], [값...], ...] }, d.keepTabs 에 있는 탭은 건드리지 않아요.
+ */
+function importTabs_(d) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const done = {};
+  Object.keys(d.tabs || {}).forEach(function (name) {
+    const rows = d.tabs[name] || [];
+    let sh = ss.getSheetByName(name);
+    if (!sh) sh = ss.insertSheet(name);
+    sh.clearContents();
+    if (!rows.length) { done[name] = 0; return; }
+    const w = rows.reduce(function (m, r) { return Math.max(m, r.length); }, 0);
+    const block = rows.map(function (r) { const x = r.slice(); while (x.length < w) x.push(''); return x; });
+    sh.getRange(1, 1, block.length, w).setNumberFormat('@');
+    sh.getRange(1, 1, block.length, w).setValues(block);
+    sh.getRange(1, 1, 1, w).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    done[name] = block.length - 1;
+  });
+  return out_({ ok: true, done: done });
+}
+
+/**
+ * ───────── 기록 자동 가져오기 (무료 · 토큰 사용 없음) ─────────
+ * 래틀러스: 나이스캐치 / 가락불스: 모션베이스볼 에서 매일 아침 6시에 기록을 읽어 시트를 채워요.
+ *  - 일정: 사이트 경기로 갱신하되, 시트에 적어둔 후기·사진·장소는 지우지 않아요. 사이트에 없는 경기(연습경기 등)도 남겨요.
+ *  - 박스스코어 · 박스_투수 · 이닝스코어 · 시즌_타자 · 시즌_투수 · 팀기록: 사이트 기준으로 새로 써요.
+ *  - 상대분석: 다가오는 경기 상대팀의 올 시즌 타자·투수 기록을 정리해요.
+ *  - 팀원 탭은 건드리지 않아요.
+ * 평균자책은 사회인 기준 7이닝으로 계산해요.
+ *
+ * 처음 한 번만: 함수 선택에서 setupAutoSync 를 고르고 ▶ 실행 → 권한 허용
+ */
+// ★ 팀마다 이 부분만 다르게 설정해요
+const SYNC = {
+  source: '',        // 'nicecatch' 또는 'motion' (카리스는 '' = 자동 가져오기 없음)
+  team: '',          // 나이스캐치: 팀 ID / 모션베이스볼: teamSeq
+  siteName: '',      // 사이트에 적힌 우리 팀 이름 (모션베이스볼: '가락BULLS')
+  myName: ''         // 시트에 쓸 우리 팀 이름
+};
+const ERA_INN = 7;
+
+function setupAutoSync() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'syncRecords') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('syncRecords').timeBased().atHour(6).everyDays(1).inTimezone('Asia/Seoul').create();
+  return syncRecords();
+}
+function syncRecords() {
+  if (!SYNC.source) return 'SYNC 설정이 비어 있어요';
+  const data = SYNC.source === 'nicecatch' ? fromNicecatch_() : fromMotion_();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  data.tabs['일정'] = mergeSchedule_(ss, data.tabs['일정']);
+  writeTabs_(ss, data.tabs);
+  PropertiesService.getScriptProperties().setProperty('lastSync', new Date().toISOString());
+  return '완료: ' + Object.keys(data.tabs).map(function (k) { return k + ' ' + (data.tabs[k].length - 1); }).join(', ');
+}
+
+/* ---------- 공통 ---------- */
+function writeTabs_(ss, tabs) {
+  Object.keys(tabs).forEach(function (name) {
+    const rows = tabs[name] || [];
+    let sh = ss.getSheetByName(name);
+    if (!sh) sh = ss.insertSheet(name);
+    sh.clearContents();
+    if (!rows.length) return;
+    const w = rows.reduce(function (m, r) { return Math.max(m, r.length); }, 0);
+    const block = rows.map(function (r) { const x = r.map(function (v) { return v === null || v === undefined ? '' : v; }); while (x.length < w) x.push(''); return x; });
+    sh.getRange(1, 1, block.length, w).setNumberFormat('@');
+    sh.getRange(1, 1, block.length, w).setValues(block);
+    sh.getRange(1, 1, 1, w).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  });
+}
+// 시트에 있던 후기·사진·장소(빈 칸 채우기)를 지키면서 일정을 합쳐요
+function mergeSchedule_(ss, fresh) {
+  const sh = ss.getSheetByName('일정');
+  if (!sh || sh.getLastRow() < 2) return fresh;
+  const tz = 'Asia/Seoul';
+  const old = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+  const oh = old[0].map(function (h) { return String(h).trim(); });
+  const fh = fresh[0];
+  const key = function (d, o) { return d + '|' + String(o).replace(/\s+/g, '').toLowerCase(); };
+  const cell = function (row, head, name) { const i = head.indexOf(name); if (i < 0) return ''; const v = row[i]; return v instanceof Date ? Utilities.formatDate(v, tz, name === '시간' ? 'HH:mm' : 'yyyy-MM-dd') : String(v).trim(); };
+  const oldBy = {};
+  old.slice(1).forEach(function (r) { oldBy[key(cell(r, oh, '날짜'), cell(r, oh, '상대팀'))] = r; });
+  const seen = {};
+  const out = [fh];
+  fresh.slice(1).forEach(function (r) {
+    const k = key(r[fh.indexOf('날짜')], r[fh.indexOf('상대팀')]); seen[k] = 1;
+    const o = oldBy[k];
+    if (o) ['후기', '사진', '장소', '위도', '경도'].forEach(function (c) { const i = fh.indexOf(c); const v = cell(o, oh, c); if (i >= 0 && v && !String(r[i] || '').trim()) r[i] = v; });
+    out.push(r);
+  });
+  // 사이트에 없는 경기는 그대로 남겨요
+  old.slice(1).forEach(function (r) {
+    const k = key(cell(r, oh, '날짜'), cell(r, oh, '상대팀'));
+    if (seen[k] || !cell(r, oh, '날짜')) return;
+    out.push(fh.map(function (c) { return cell(r, oh, c); }));
+  });
+  return [out[0]].concat(out.slice(1).sort(function (a, b) { return String(a[0]).localeCompare(String(b[0])); }));
+}
+const SCHED_HEAD = ['날짜', '시간', '상대팀', '장소', '선후공', '결과', '점수', '후기', '사진', '대회'];
+const BOX_HEAD = ['날짜', '상대팀', '팀', '구분', '순서', '포지션', '이름', '타수', '안타', '타점', '도루', '득점', '볼넷', '사구'];
+const BP_HEAD = ['날짜', '상대팀', '팀', '이름', '결과', '이닝', '피안타', '실점', '자책', '4사구', '삼진'];
+const INN_HEAD = ['날짜', '상대팀', '선후공', '팀', '1회', '2회', '3회', '4회', '5회', '6회', '7회', 'R', 'H', 'E', 'B'];
+const SB_HEAD = ['이름', '소속구분', '타율', '팀게임', '선수게임', '타석', '타수', '총안타', '1루타', '2루타', '3루타', '홈런', '타점', '득점', '도루', '볼넷', '삼진', '출루율', '장타율', 'OPS'];
+const SP_HEAD = ['이름', 'ERA', '팀게임', '선수게임', '이닝', '승', '패', '세이브', '홀드', '삼진', '피안타', '피홈런', '실점', '볼넷', '사구', '승률', 'WHIP'];
+const OPP_HEAD = ['상대팀', '구분', '이름', '경기', '타석', '타수', '안타', '타율', '출루율', '장타율', 'OPS', '홈런', '타점', '도루', '이닝', '평균자책', '탈삼진', '볼넷', 'WHIP', '비고'];
+const r3_ = function (x) { return Math.round(x * 1000) / 1000; };
+const r2_ = function (x) { return Math.round(x * 100) / 100; };
+const ipStr_ = function (o) { return Math.floor(o / 3) + (o % 3 ? '.' + (o % 3) : ''); };
+// 선수별 누적 → 시즌 표
+function newBat_() { return { g: {}, tpa: 0, ab: 0, h: 0, b2: 0, b3: 0, hr: 0, rbi: 0, r: 0, sb: 0, bb: 0, hbp: 0, so: 0, sf: 0 }; }
+function newPit_() { return { g: 0, o: 0, w: 0, l: 0, sv: 0, hd: 0, so: 0, h: 0, hr: 0, r: 0, er: 0, bb: 0, hbp: 0 }; }
+function batLine_(q) {
+  const b1 = q.h - q.b2 - q.b3 - q.hr, tb = b1 + 2 * q.b2 + 3 * q.b3 + 4 * q.hr;
+  const avg = q.ab ? q.h / q.ab : 0, den = q.ab + q.bb + q.hbp + q.sf, obp = den ? (q.h + q.bb + q.hbp) / den : 0, slg = q.ab ? tb / q.ab : 0;
+  return { b1: b1, avg: r3_(avg), obp: r3_(obp), slg: r3_(slg), ops: r3_(obp + slg) };
+}
+function pitLine_(q) { const ip = q.o / 3; return { era: ip ? r2_(q.er * ERA_INN / ip) : 0, whip: ip ? r2_((q.bb + q.hbp + q.h) / ip) : 0 }; }
+function seasonTabs_(sb, sp, games) {
+  const bat = [SB_HEAD], pit = [SP_HEAD];
+  Object.keys(sb).forEach(function (n) { const q = sb[n], L = batLine_(q); bat.push([n, '현역', L.avg, games, Object.keys(q.g).length, q.tpa, q.ab, q.h, L.b1, q.b2, q.b3, q.hr, q.rbi, q.r, q.sb, q.bb, q.so, L.obp, L.slg, L.ops]); });
+  Object.keys(sp).forEach(function (n) { const q = sp[n], L = pitLine_(q); pit.push([n, L.era, games, q.g, ipStr_(q.o), q.w, q.l, q.sv, q.hd, q.so, q.h, q.hr, q.r, q.bb, q.hbp, (q.w + q.l) ? r3_(q.w / (q.w + q.l)) : 0, L.whip]); });
+  return { bat: bat, pit: pit };
+}
+// 상대분석 행 만들기 (타자는 OPS순 6명, 투수는 이닝순 4명)
+function oppRows_(name, sb, sp, rec) {
+  const rows = [[name, '팀', '', rec.g, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', rec.w + '승 ' + rec.l + '패' + (rec.d ? ' ' + rec.d + '무' : '') + ' · 경기당 득점 ' + (rec.g ? r2_(rec.rf / rec.g) : 0) + ' / 실점 ' + (rec.g ? r2_(rec.ra / rec.g) : 0)]];
+  const minPa = Math.max(3, Math.round(rec.g * 1.2));
+  Object.keys(sb).map(function (n) { return [n, sb[n]]; }).filter(function (x) { return x[1].tpa >= minPa; })
+    .sort(function (a, b) { return batLine_(b[1]).ops - batLine_(a[1]).ops; }).slice(0, 6)
+    .forEach(function (x) { const q = x[1], L = batLine_(q); rows.push([name, '타자', x[0], Object.keys(q.g).length, q.tpa, q.ab, q.h, L.avg, L.obp, L.slg, L.ops, q.hr, q.rbi, q.sb, '', '', '', q.bb, '', '']); });
+  Object.keys(sp).map(function (n) { return [n, sp[n]]; }).sort(function (a, b) { return b[1].o - a[1].o; }).slice(0, 4)
+    .forEach(function (x) { const q = x[1], L = pitLine_(q); rows.push([name, '투수', x[0], q.g, '', '', '', '', '', '', '', '', '', '', ipStr_(q.o), L.era, q.so, q.bb + q.hbp, L.whip, q.w + '승 ' + q.l + '패']); });
+  return rows;
+}
+const kstDate_ = function (iso) { return Utilities.formatDate(new Date(iso), 'Asia/Seoul', 'yyyy-MM-dd'); };
+const kstTime_ = function (iso) { return Utilities.formatDate(new Date(iso), 'Asia/Seoul', 'HH:mm'); };
+const POSK_ = { P: '투수', C: '포수', '1B': '1루', '2B': '2루', '3B': '3루', SS: '유격', LF: '좌익', CF: '중견', RF: '우익', DH: '지타', PH: '대타', PR: '대주자' };
+
+/* ---------- 나이스캐치 ---------- */
+function nc_(path) { return JSON.parse(UrlFetchApp.fetch('http://www.nicecatch.kr' + path, { muteHttpExceptions: true }).getContentText()).data; }
+function ncMany_(paths) { return UrlFetchApp.fetchAll(paths.map(function (p) { return { url: 'http://www.nicecatch.kr' + p, muteHttpExceptions: true }; })).map(function (r) { try { return JSON.parse(r.getContentText()).data; } catch (e) { return null; } }); }
+function ncSeason_(team) {
+  const y = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy');
+  const ls = nc_('/api/team/' + team + '/leagues') || [];
+  const s = ls.filter(function (x) { return String(x.seasonName || '').indexOf(y) >= 0 || String(x.beginDate || '').indexOf(y) === 0; })[0] || ls[0];
+  return s && s.seasonId;
+}
+function ncName_(r) { return (r.teamPlayer && r.teamPlayer.teamPlayerName) || (r.player && r.player.playerName) || ''; }
+// 한 팀의 시즌 경기 상세를 읽어 누적해요
+function ncCollect_(team, season, forBox) {
+  const games = (nc_('/api/team/' + team + '/game/season/' + season) || []).sort(function (a, b) { return String(a.startTime).localeCompare(String(b.startTime)); });
+  const details = ncMany_(games.map(function (g) { return '/api/game/' + g.gameId + '/detail'; }));
+  const sb = {}, sp = {}, rec = { g: 0, w: 0, l: 0, d: 0, rf: 0, ra: 0 }, grounds = {};
+  const box = [BOX_HEAD], bp = [BP_HEAD], inn = [INN_HEAD], sched = [SCHED_HEAD];
+  games.forEach(function (g, gi) {
+    const d = details[gi]; if (!d) return;
+    const ls = d.leagueSchedule || {}, vis = g.visitTeamId === team;
+    const opp = vis ? (ls.homeTeamInfo || {}).teamName : (ls.visitTeamInfo || {}).teamName;
+    const oppId = vis ? g.homeTeamId : g.visitTeamId;
+    const dt = kstDate_(g.startTime), us = vis ? g.visitScore : g.homeScore, th = vis ? g.homeScore : g.visitScore;
+    const res = (g.gameDraw || us === th) ? '무' : us > th ? '승' : '패';
+    rec.g++; rec[res === '승' ? 'w' : res === '패' ? 'l' : 'd']++; rec.rf += us; rec.ra += th;
+    const gn = (g.ground && g.ground.groundName) || ((d.game || {}).ground || {}).groundName || '';
+    if (g.groundId && gn) grounds[g.groundId] = gn;
+    sched.push([dt, kstTime_(g.startTime), opp, gn, vis ? '선공' : '후공', res, us + ':' + th, '', '', (g.league || {}).leagueName || '']);
+    const sides = forBox ? [[team, SYNC.myName], [oppId, opp]] : [[team, '']];
+    sides.forEach(function (s) {
+      const tid = s[0], tname = s[1];
+      const rs = (d.gameSimpleRec || []).filter(function (r) { return r.teamId === tid; });
+      const bats = rs.filter(function (r) { return r.isBat; }).sort(function (a, b) { return a.batNum - b.batNum || a.seq - b.seq; });
+      const tot = [0, 0, 0, 0, 0, 0, 0];
+      bats.forEach(function (r) {
+        const bb = (r.batBb || 0) + (r.batIbb || 0), n = ncName_(r);
+        const v = [r.batAb, r.batHits, r.batRbi, r.batSb, r.batRuns, bb, r.batHbp];
+        v.forEach(function (x, i) { tot[i] += x || 0; });
+        if (forBox) box.push([dt, opp, tname, '타자', r.batNum, POSK_[r.position] || r.position || '', n].concat(v));
+        if (tid === team) {
+          const q = sb[n] = sb[n] || newBat_(); q.g[dt] = 1; q.tpa += r.batTpa || 0; q.ab += r.batAb || 0; q.h += r.batHits || 0; q.b2 += r.batB2 || 0; q.b3 += r.batB3 || 0; q.hr += r.batHr || 0;
+          q.rbi += r.batRbi || 0; q.r += r.batRuns || 0; q.sb += r.batSb || 0; q.bb += bb; q.hbp += r.batHbp || 0; q.so += r.batSo || 0; q.sf += r.batSf || 0;
+        }
+      });
+      if (forBox) box.push([dt, opp, tname, '합계', '', '', ''].concat(tot));
+      rs.filter(function (r) { return r.isPit; }).sort(function (a, b) { return a.pitSeq - b.pitSeq; }).forEach(function (r) {
+        const dec = { w: '승', l: '패', s: '세', h: '홀' }[r.pitWinType] || (r.pitWin ? '승' : r.pitLoss ? '패' : r.pitSave ? '세' : r.pitHold ? '홀' : '');
+        const n = ncName_(r);
+        if (forBox) bp.push([dt, opp, tname, n, dec, ipStr_(r.pitOuts || 0), r.pitHits, r.pitRuns, r.pitEr, (r.pitBb || 0) + (r.pitHbp || 0), r.pitSo]);
+        if (tid === team) {
+          const q = sp[n] = sp[n] || newPit_(); q.g++; q.o += r.pitOuts || 0; q.w += dec === '승'; q.l += dec === '패'; q.sv += dec === '세'; q.hd += dec === '홀';
+          q.so += r.pitSo || 0; q.h += r.pitHits || 0; q.hr += r.pitHr || 0; q.r += r.pitRuns || 0; q.er += r.pitEr || 0; q.bb += r.pitBb || 0; q.hbp += r.pitHbp || 0;
+        }
+      });
+      if (forBox) {
+        const sbd = (d.scoreboard || []).filter(function (x) { return x.teamId === tid; }), byI = {};
+        sbd.forEach(function (x) { byI[x.inning] = x.runs; });
+        inn.push([dt, opp, vis ? '선공' : '후공', tname].concat([1, 2, 3, 4, 5, 6, 7].map(function (i) { return byI[i] === undefined ? '' : byI[i]; }))
+          .concat([tid === team ? us : th, bats.reduce(function (a, r) { return a + (r.batHits || 0); }, 0), sbd.reduce(function (a, x) { return a + (x.errors || 0); }, 0), bats.reduce(function (a, r) { return a + (r.batBb || 0) + (r.batIbb || 0); }, 0)]));
+      }
+    });
+  });
+  return { sb: sb, sp: sp, rec: rec, box: box, bp: bp, inn: inn, sched: sched, grounds: grounds };
+}
+function fromNicecatch_() {
+  const T = SYNC.team, S = ncSeason_(T);
+  const me = ncCollect_(T, S, true);
+  const next = nc_('/api/team/' + T + '/schedule/next/5') || [];
+  next.forEach(function (s) {
+    if (s.isCancel) return;
+    const vis = s.visitTeamId === T, opp = vis ? s.homeTeam.team.teamName : s.visitTeam.team.teamName;
+    me.sched.push([kstDate_(s.scheduleTime), kstTime_(s.scheduleTime), opp, me.grounds[s.groundId] || '', vis ? '선공' : '후공', '', '', '', '', (s.league || {}).leagueName || '']);
+  });
+  // 상대분석: 다가오는 상대팀들의 올 시즌 기록
+  const opp = [OPP_HEAD], done = {};
+  next.slice(0, 3).forEach(function (s) {
+    const vis = s.visitTeamId === T, oid = vis ? s.homeTeamId : s.visitTeamId, on = vis ? s.homeTeam.team.teamName : s.visitTeam.team.teamName;
+    if (done[oid]) return; done[oid] = 1;
+    try { const o = ncCollect_(oid, S, false); oppRows_(on, o.sb, o.sp, o.rec).forEach(function (r) { opp.push(r); }); } catch (e) {}
+  });
+  const st = seasonTabs_(me.sb, me.sp, me.rec.g);
+  const team = [['항목', '값'], ['리그', '나이스캐치 ' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy')], ['경기', me.rec.g], ['승', me.rec.w], ['패', me.rec.l], ['무', me.rec.d], ['득점', me.rec.rf], ['실점', me.rec.ra]];
+  return { tabs: { '일정': me.sched, '박스스코어': me.box, '박스_투수': me.bp, '이닝스코어': me.inn, '시즌_타자': st.bat, '시즌_투수': st.pit, '팀기록': team, '상대분석': opp } };
+}
+
+/* ---------- 모션베이스볼 ---------- */
+const MB = 'https://www.motion-baseball.com';
+function mbGet_(path) { return UrlFetchApp.fetch(MB + path, { muteHttpExceptions: true }).getContentText(); }
+function mbText_(s) { return String(s).replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim(); }
+function mbTables_(html) {
+  return (html.match(/<table[\s\S]*?<\/table>/gi) || []).map(function (t) {
+    return (t.match(/<tr[\s\S]*?<\/tr>/gi) || []).map(function (tr) { return (tr.match(/<t[dh][^>]*>[\s\S]*?<\/t[dh]>/gi) || []).map(mbText_); });
+  });
+}
+const mbClean_ = function (s) { return String(s).replace(/\s*(콜드승|콜드패|몰수승|몰수패)\s*/g, ' ').trim(); };
+const mbName_ = function (s) { return String(s).replace(/\s*\(.*\)\s*$/, '').trim(); };
+// 팀 경기 목록 (이번 해)
+function mbGames_(seq) {
+  const y = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy');
+  const h = mbGet_('/teamPage/scheduleRecord/getGameRecord.hs?teamSeq=' + seq + '&leagueCategory=&searchStartGameDate=' + y + '-01-01&searchEndGameDate=' + y + '-12-31&searchLeagueSeq=&rowSize=300&num=1');
+  const out = [];
+  (h.match(/<tr[\s\S]*?<\/tr>/gi) || []).forEach(function (tr) {
+    const m = tr.match(/gameScheduleSeq=(\d+)/); if (!m) return;
+    const c = (tr.match(/<td[^>]*>[\s\S]*?<\/td>/gi) || []).map(mbText_);
+    const seqs = (tr.match(/getMain\.hs\?teamSeq=(\d+)/g) || []).map(function (x) { return x.split('=')[1]; });
+    const g = mbClean_(c[3] || '').match(/^(.*?)\s+(\d+)\s+VS\s+(\d+)\s+(.*)$/);
+    if (!g) return;
+    out.push({ seq: m[1], when: c[0], league: c[1], ground: c[2], vis: g[1].trim(), vs: +g[2], hs: +g[3], home: g[4].trim(), forfeit: /몰수/.test(c[3] || ''), visSeq: seqs[0], homeSeq: seqs[1] });
+  });
+  return out;
+}
+// 한 팀 기준으로 경기들을 읽어 누적
+function mbCollect_(seq, siteName, outName, forBox) {
+  const games = mbGames_(seq).sort(function (a, b) { return a.when.localeCompare(b.when); });
+  const pages = UrlFetchApp.fetchAll(games.map(function (g) { return { url: MB + '/schedule/getGameRecord.hs?leagueCategory=INTER&gameScheduleSeq=' + g.seq, muteHttpExceptions: true }; })).map(function (r) { return r.getContentText(); });
+  const sb = {}, sp = {}, rec = { g: 0, w: 0, l: 0, d: 0, rf: 0, ra: 0 };
+  const box = [BOX_HEAD], bp = [BP_HEAD], inn = [INN_HEAD], sched = [SCHED_HEAD];
+  const tn = function (n) { return n === siteName ? outName : n; };
+  games.forEach(function (g, gi) {
+    const T = mbTables_(pages[gi]);
+    const weVis = g.vis === siteName, opp = weVis ? g.home : g.vis;
+    const dt = g.when.slice(0, 10), tm = (g.when.match(/\d\d:\d\d/) || [''])[0];
+    const us = weVis ? g.vs : g.hs, th = weVis ? g.hs : g.vs;
+    const res = g.forfeit && us === 0 && th === 0 ? '승' : us > th ? '승' : us < th ? '패' : '무';
+    rec.g++; rec[res === '승' ? 'w' : res === '패' ? 'l' : 'd']++; rec.rf += us; rec.ra += th;
+    sched.push([dt, tm, opp, g.ground, weVis ? '선공' : '후공', res, g.forfeit && !us && !th ? '' : us + ':' + th, g.forfeit && !us && !th ? '몰수승' : '', '', g.league]);
+    if (!T.length) return;
+    // 이닝 점수 (첫 표)
+    if (forBox) T[0].slice(1).forEach(function (r) { if (r.length < 17) return; inn.push([dt, opp, weVis ? '선공' : '후공', tn(r[0])].concat(r.slice(1, 8).map(function (x) { return x === '-' ? '' : x; })).concat([r[13], r[14], r[15], r[16]])); });
+    // 장타 요약 (2루타·3루타·홈런)
+    const xbh = {};
+    const sumT = T.filter(function (t) { return t[0] && t[0][1] === '팀명'; })[0];
+    if (sumT) sumT.slice(1).forEach(function (c) {
+      if (!/2루타|3루타|홈런/.test(c[1] || '')) return;
+      [[sumT[0][0], c[0]], [sumT[0][2], c[2]]].forEach(function (p) { (String(p[1]).match(/[^\s()]+(?= \()/g) || []).forEach(function (n) { const k = p[0] + '|' + n; xbh[k] = xbh[k] || { b2: 0, b3: 0, hr: 0 }; xbh[k][c[1] === '2루타' ? 'b2' : c[1] === '3루타' ? 'b3' : 'hr']++; }); });
+    });
+    T.filter(function (t) { return t[0] && t[0].indexOf('타석') >= 0; }).forEach(function (t) {
+      const team = t[0][0], tot = [0, 0, 0, 0, 0, 0, 0], mine = team === siteName;
+      if (!forBox && !mine) return;
+      t.slice(1).forEach(function (c) {
+        if (c.length < 20 || !c[1]) return;
+        const n = c.length, nums = c.slice(n - 7, n - 1).map(function (x) { return +x || 0; });
+        const tok = c.slice(3, n - 7).join(' ').split(/[,\s]+/);
+        const bb = tok.filter(function (x) { return x === '4구' || /^고의?4/.test(x); }).length, hbp = tok.filter(function (x) { return x === '사구'; }).length;
+        const name = mbName_(c[1]);
+        const v = [nums[1], nums[2], nums[3], nums[5], nums[4], bb, hbp];
+        v.forEach(function (x, i) { tot[i] += x; });
+        if (forBox) box.push([dt, opp, tn(team), '타자', c[0], POSK_[c[2]] || c[2], name].concat(v));
+        if (mine) {
+          const q = sb[name] = sb[name] || newBat_(), x = xbh[team + '|' + name] || {};
+          q.g[dt] = 1; q.tpa += nums[0]; q.ab += nums[1]; q.h += nums[2]; q.rbi += nums[3]; q.r += nums[4]; q.sb += nums[5]; q.bb += bb; q.hbp += hbp;
+          q.so += tok.filter(function (x) { return x === '삼진' || x === '스낫'; }).length; q.b2 += x.b2 || 0; q.b3 += x.b3 || 0; q.hr += x.hr || 0;
+        }
+      });
+      if (forBox) box.push([dt, opp, tn(team), '합계', '', '', ''].concat(tot));
+    });
+    T.filter(function (t) { return t[0] && t[0].indexOf('등판') >= 0; }).forEach(function (t) {
+      const team = t[0][0], mine = team === siteName;
+      if (!forBox && !mine) return;
+      t.slice(1).forEach(function (c) {
+        if (c[0] === 'Total' || c.length < 15) return;
+        const name = mbName_(c[1]), ab = String(c[4]).split('.'), outs = (+ab[0] || 0) * 3 + (+ab[1] || 0);
+        const hit = +c[8] || 0, hr = +c[9] || 0, bb4 = +c[10] || 0, so = +c[11] || 0, runs = +c[12] || 0, er = +c[13] || 0;
+        if (forBox) bp.push([dt, opp, tn(team), name, c[3], ipStr_(outs), hit, runs, er, bb4, so]);
+        if (mine) { const q = sp[name] = sp[name] || newPit_(); q.g++; q.o += outs; q.w += c[3] === '승'; q.l += c[3] === '패'; q.sv += c[3] === '세'; q.hd += c[3] === '홀'; q.so += so; q.h += hit; q.hr += hr; q.r += runs; q.er += er; q.bb += bb4; }
+      });
+    });
+  });
+  return { sb: sb, sp: sp, rec: rec, box: box, bp: bp, inn: inn, sched: sched, games: games };
+}
+// 팀 이름 → teamSeq (한 번 찾아서 저장해 둬요)
+function mbSeqOf_(name) {
+  const props = PropertiesService.getScriptProperties();
+  let map = {}; try { map = JSON.parse(props.getProperty('mbTeams') || '{}'); } catch (e) {}
+  if (map[name]) return map[name];
+  const reqs = []; for (let i = 1; i <= 200; i++) reqs.push({ url: MB + '/teamPage/main/getMain.hs?teamSeq=' + i, muteHttpExceptions: true });
+  UrlFetchApp.fetchAll(reqs).forEach(function (r, i) { const m = r.getContentText().match(/<title>\s*([^<|]+?)\s*\|/); if (m) map[m[1].trim()] = String(i + 1); });
+  props.setProperty('mbTeams', JSON.stringify(map));
+  return map[name];
+}
+function fromMotion_() {
+  const me = mbCollect_(SYNC.team, SYNC.siteName, SYNC.myName, true);
+  // 다가오는 경기: 팀 메인 페이지
+  const txt = mbGet_('/teamPage/main/getMain.hs?teamSeq=' + SYNC.team).replace(/<\/t[dh]>/gi, '\t').replace(/<\/tr>|<br\s*\/?>|<\/p>|<\/div>|<\/li>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ');
+  const re = /(\d{4}-\d{2}-\d{2})\s*\n\s*(\d{2}:\d{2})\s*\t?\s*([^\t\n]+?)\s*\t\s*VS\s*\t\s*([^\t\n]+)/g; let m; const next = [];
+  while ((m = re.exec(txt))) next.push({ dt: m[1], tm: m[2], vis: m[3].trim(), home: m[4].trim() });
+  const opp = [OPP_HEAD], done = {};
+  next.forEach(function (n, i) {
+    const weVis = n.vis === SYNC.siteName, on = weVis ? n.home : n.vis;
+    if (!me.sched.some(function (r) { return r[0] === n.dt && r[2] === on; })) me.sched.push([n.dt, n.tm, on, '송파구 탄천 인조잔디구장', weVis ? '선공' : '후공', '', '', '', '', '']);
+    if (i > 2 || done[on]) return; done[on] = 1;
+    try { const seq = mbSeqOf_(on); if (!seq) return; const o = mbCollect_(seq, on, on, false); oppRows_(on, o.sb, o.sp, o.rec).forEach(function (r) { opp.push(r); }); } catch (e) {}
+  });
+  const st = seasonTabs_(me.sb, me.sp, me.rec.g);
+  const team = [['항목', '값'], ['리그', '송파구야구소프트볼협회 ' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy')], ['경기', me.rec.g], ['승', me.rec.w], ['패', me.rec.l], ['무', me.rec.d], ['득점', me.rec.rf], ['실점', me.rec.ra]];
+  return { tabs: { '일정': me.sched, '박스스코어': me.box, '박스_투수': me.bp, '이닝스코어': me.inn, '시즌_타자': st.bat, '시즌_투수': st.pit, '팀기록': team, '상대분석': opp } };
+}
