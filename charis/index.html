@@ -678,7 +678,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v44 · 상대 최근경기 상세';
+const BUILD = 'v45 · 분석 카드 공유';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1250,6 +1250,55 @@ async function makeShareCard(key){
   x.fillText((location.host ? location.host + location.pathname : CONFIG.TEAM_NAME).replace(/index\.html$/, ''), W / 2, H - 26); x.textAlign = 'left';
   return new Promise(res => c.toBlob(b => res(b), 'image/png'));
 }
+async function makeOppCard(key){
+  const D = (state.oppShare || {})[key]; if(!D) return null;
+  const { g, opp, bats, pits, f3, f2 } = D;
+  const rec = (state.data.oppRecent || []).filter(r => normT(r['상대팀']) === normT(opp));
+  const games = rec.filter(r => r['구분'] === '경기'), pts = rec.filter(r => r['구분'] === '포인트').map(r => String(r['c1'] || '')).filter(Boolean).slice(0, 8);
+  try{ await document.fonts.ready; }catch(e){}
+  const W = 1080, c = document.createElement('canvas'), x = c.getContext('2d'), F = (w, s) => `${w} ${s}px "Noto Sans KR","Apple SD Gothic Neo",sans-serif`;
+  // 줄바꿈 계산
+  const wrap = (txt, font, maxW) => { x.font = font; const out = []; let line = ''; for(const ch of txt){ if(x.measureText(line + ch).width > maxW && line){ out.push(line); line = ch; } else line += ch; } if(line) out.push(line); return out; };
+  const ptLines = pts.map(p => wrap(p, F(500, 28), W - 160));
+  const bRows = bats.slice(0, 6), pRows = pits.slice(0, 4);
+  const H = 470 + (games.length ? 90 + games.length * 50 : 0) + 90 + bRows.length * 50 + (pRows.length ? 90 + pRows.length * 50 : 0) + (pts.length ? 80 + ptLines.reduce((s, l) => s + l.length * 40 + 12, 0) : 0) + 60;
+  c.width = W; c.height = H;
+  const grd = x.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#06110b'); grd.addColorStop(.6, '#0E2418'); grd.addColorStop(1, '#1F3A5A');
+  x.fillStyle = grd; x.fillRect(0, 0, W, H); x.fillStyle = '#C8262F'; x.fillRect(0, 0, W, 14);
+  const logo = await loadImg(CONFIG.LOGO);
+  if(logo){ x.save(); x.beginPath(); x.arc(130, 140, 70, 0, Math.PI * 2); x.clip(); x.drawImage(logo, 60, 70, 140, 140); x.restore(); }
+  const lx = logo ? 230 : 70;
+  x.fillStyle = '#F5B82E'; x.font = F(800, 30); x.fillText('🔎 상대팀 전력 분석', lx, 115);
+  x.fillStyle = '#fff'; x.font = F(900, 62); x.fillText(`vs ${opp}`, lx, 190, W - lx - 60);
+  x.fillStyle = '#C9D8CE'; x.font = F(500, 30); x.fillText(`${fmtDate(g._d)} ${g['시간'] || ''} · ${g['장소'] || ''}${g['선후공'] ? ' · ' + g['선후공'] : ''}`, 70, 280, W - 140);
+  if(games.length){ const w = games.filter(r => r['c3'] === '승').length, l = games.filter(r => r['c3'] === '패').length; x.fillStyle = '#F5D27A'; x.font = F(800, 34); x.fillText(`최근 ${games.length}경기 ${w}승 ${l}패`, 70, 340); }
+  let y = 420;
+  const table = (title, head, cols, rows) => {
+    x.fillStyle = '#9DB5A6'; x.font = F(800, 32); x.fillText(title, 70, y); y += 50;
+    x.font = F(700, 24); x.fillStyle = '#9DB5A6'; head.forEach((h, i) => { x.textAlign = i ? 'center' : 'left'; x.fillText(h, cols[i], y); }); y += 12;
+    x.fillStyle = 'rgba(255,255,255,.15)'; x.fillRect(70, y, W - 140, 2); y += 40;
+    rows.forEach((r, k) => { r.forEach((v, i) => { x.textAlign = i ? 'center' : 'left'; x.fillStyle = i === 0 ? '#fff' : '#DDE7E0'; x.font = F(i === 0 ? 700 : 500, 28); x.fillText(String(v), cols[i], y, i ? 150 : 260); }); y += 50; });
+    x.textAlign = 'left'; y += 28;
+  };
+  if(games.length) table('🗓 최근 경기', ['날짜', '상대', '결과', '점수', '안타', '도루'], [70, 380, 560, 680, 820, 950], games.map(r => [r['c1'], r['c2'], r['c3'], r['c4'], r['c7'], r['c10']]));
+  table('🏏 경계 타자', ['이름', '타율', '출루율', 'OPS', '타점', '도루'], [70, 400, 540, 680, 820, 950], bRows.map((r, i) => [(i === 0 ? '🔥 ' : '') + r['이름'], f3(r.타율), f3(r.출루율), r.OPS == null ? '-' : f3(r.OPS), N(r['타점']), N(r['도루'])]));
+  if(pRows.length) table('⚾ 주요 투수', ['이름', '이닝', 'ERA', '삼진', '4사구', 'WHIP'], [70, 400, 540, 680, 820, 950], pRows.map(r => [r['이름'], r['이닝'], f2(r.평균자책), N(r['탈삼진']), N(r['볼넷']), f2(r.WHIP)]));
+  if(pts.length){ x.fillStyle = '#F5B82E'; x.font = F(800, 32); x.fillText('💡 공략 포인트', 70, y); y += 52;
+    ptLines.forEach(ls => { ls.forEach(l => { x.fillStyle = '#EDEFE9'; x.font = F(500, 28); x.fillText(l, 80, y); y += 40; }); y += 12; }); }
+  x.fillStyle = 'rgba(255,255,255,.5)'; x.font = F(500, 24); x.textAlign = 'center';
+  x.fillText(`${CONFIG.TEAM_NAME} · ${(location.host ? location.host + location.pathname : '').replace(/index\.html$/, '')}`, W / 2, H - 24); x.textAlign = 'left';
+  return new Promise(res => c.toBlob(b => res(b), 'image/png'));
+}
+async function shareOpp(key){
+  toast('분석 카드 만드는 중…', 8000);
+  const blob = await makeOppCard(key); if(!blob){ toast('카드를 만들지 못했어요'); return; }
+  const D = state.oppShare[key], file = new File([blob], `${CONFIG.TEAM_NAME}-vs-${D.opp}-분석.png`, { type: 'image/png' });
+  try{ if(navigator.canShare && navigator.canShare({ files: [file] })){ toast('', 1); await navigator.share({ files: [file], title: `${CONFIG.TEAM_NAME} vs ${D.opp} 전력 분석` }); return; } }catch(e){ if(e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob);
+  const box = document.getElementById('lightbox'); box.querySelector('img').src = url; box.classList.add('on');
+  const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  toast('이미지를 저장했어요. 휴대폰에선 사진을 길게 눌러 저장할 수 있어요', 4500);
+}
 async function shareCard(key){
   toast('공유 카드 만드는 중…', 8000);
   const blob = await makeShareCard(key); if(!blob){ toast('카드를 만들지 못했어요'); return; }
@@ -1372,6 +1421,7 @@ function oppCard(g){
   const bats = rows.filter(r => r['구분'] === '타자').sort((a, b) => bk(b) - bk(a)).slice(0, 6);
   const pits = rows.filter(r => r['구분'] === '투수').sort((a, b) => (b._o || 0) - (a._o || 0)).slice(0, 4);
   const f3 = v => (+v).toFixed(3).replace(/^0\./, '.'), f2 = v => (+v).toFixed(2);
+  (state.oppShare = state.oppShare || {})[keyOf(g._d)] = { g, opp, note, bats, pits, f3, f2 };
   let body = '';
   if(side === 'bat'){
     body = bats.length ? `<table><tr><th>타자</th><th>타율</th><th>출루율</th><th>OPS</th><th>타점</th><th>도루</th></tr>${bats.map((r, i) => `<tr><td>${esc(r['이름'])}${i === 0 ? '<span class="warn">경계</span>' : ''}</td><td>${f3(r.타율)}</td><td>${f3(r.출루율)}</td><td>${r.OPS == null ? '-' : f3(r.OPS)}</td><td>${esc(r['타점'])}</td><td>${esc(r['도루'])}</td></tr>`).join('')}</table>` : '<div class="muted" style="font-size:13px">타자 기록이 없어요.</div>';
@@ -1401,7 +1451,7 @@ function oppCard(g){
     if(tips.length) body += `<div class="tip">${tips.join('<br>')}</div>`;
   }
   return `<div class="card oppa" style="margin-top:10px"><h3>🔎 상대팀 분석 · ${esc(opp)} <span>${note}</span></h3>${teamLine ? `<div class="os">${teamLine}</div>` : ''}
-    <div class="seg"><button data-act="opp-side" data-side="bat" aria-pressed="${side === 'bat'}">🏏 타자</button><button data-act="opp-side" data-side="pit" aria-pressed="${side === 'pit'}">⚾ 투수</button></div>${body}${oppRecentHtml(opp)}</div>`;
+    <div class="seg"><button data-act="opp-side" data-side="bat" aria-pressed="${side === 'bat'}">🏏 타자</button><button data-act="opp-side" data-side="pit" aria-pressed="${side === 'pit'}">⚾ 투수</button></div>${body}${oppRecentHtml(opp)}<button class="sharebtn" data-act="share-opp" data-key="${keyOf(g._d)}" style="margin-top:10px">📤 분석 카드 공유</button></div>`;
 }
 
 /* ---------- 화면: 일정 ---------- */
@@ -2075,6 +2125,7 @@ document.addEventListener('click', e => {
   else if(act === 'fbig-close'){ closeBigField(); }
   else if(act === 'fbig-bg'){ if(e.target === el) closeBigField(); }
   else if(act === 'share-card'){ shareCard(el.dataset.key); }
+  else if(act === 'share-opp'){ shareOpp(el.dataset.key); }
   else if(act === 'pd-close'){ closePlayer(); }
   else if(act === 'pd-bg'){ if(e.target === el) closePlayer(); }
   else if(act === 'mvp-open'){ state.openMvp.add(el.dataset.key); rerenderKeepScroll(); }
