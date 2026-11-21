@@ -289,6 +289,7 @@ th.sorted{color:var(--ink)}
 .sub{font-size:12px;color:var(--mute);margin:10px 0 2px;font-weight:700}
 .sr-c{border-top:1px solid var(--line);padding-top:8px;margin-top:8px}.sr-c h4{margin:0 0 6px;font-size:13px}.sr-c>div:not(.sr-tot){display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.sr-c span{border:1px solid var(--line);border-radius:10px;padding:5px 8px;display:flex;flex-direction:column}.sr-c span b{font-size:15px}.sr-c span small{font-size:11px;color:var(--mute)}.sr-tot{font-size:14px;margin-bottom:6px}
 .ms{display:flex;flex-direction:column;gap:8px}.msr{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px}.msr .n{font-weight:800;margin-right:8px;cursor:pointer}.msr .t{font-size:13px}.msr .l{color:#C8262F}.msb{height:6px;background:var(--line);border-radius:4px;margin-top:6px;overflow:hidden}.msb i{display:block;height:100%;background:linear-gradient(90deg,#1F7A4D,#F5B82E)}.sr{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}.sr-top{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;margin-bottom:8px}.sr-top b{display:block;font-size:18px}.sr-top small,.sr-k small{font-size:11px;color:var(--mute)}.sr-r{font-size:13px;padding:5px 0;border-top:1px solid var(--line)}.sr-k{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}.sr-k>div{border:1px solid var(--line);border-radius:10px;padding:6px 8px;display:flex;flex-direction:column}.sr-k b{font-size:15px}.sr-k span{font-size:12px;color:var(--mute)}
+.spray svg{width:100%;max-width:340px;display:block;margin:0 auto;border-radius:14px;background:#1d4d33}.spz{display:flex;justify-content:space-around;font-size:13px;margin-top:6px}.spl{font-size:11px;color:var(--mute);text-align:center;margin-top:4px}.spl i{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 2px 0 6px}svg.wp{width:100%;color:var(--ink,#ddd)}table.wpt td.up{color:#1F9A5D;font-weight:800}table.wpt td.dn{color:#C8262F;font-weight:800}table.wpt tr.wpbig td{background:rgba(245,184,46,.15);font-weight:800}.wppa{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:12.5px}
 .mu-k{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.mu-k>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}.mu-k small{font-size:11px;color:var(--mute)}.mu-k b{font-size:16px}.mu-k span{font-size:12px}.mu-k em{font-style:normal;font-size:11.5px;color:var(--mute);line-height:1.4}
 .mu{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.mu h4{margin:0 0 8px;font-size:14px}.mu-bar{display:flex;border-radius:10px;overflow:hidden;font-size:12px;font-weight:800;color:#fff}.mu-bar span{padding:7px 8px;white-space:nowrap;overflow:hidden;min-width:0}.mu-bar span:first-child{background:#1F7A4D}.mu-bar span:last-child{background:#B3412E;text-align:right}.mu-sc{text-align:center;margin:8px 0;font-size:14px}.mu-sc b{font-size:20px}table.mu-t{width:100%;border-collapse:collapse;font-size:13px}table.mu-t td,table.mu-t th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:center}table.mu-t th{color:var(--mute);font-weight:600;font-size:12px;width:34%}.mu-b{font-weight:900;color:var(--accent,#1F7A4D)}.mu-t i{display:inline-block;width:18px;height:18px;line-height:18px;border-radius:5px;font-style:normal;font-size:11px;color:#fff;margin:0 1px}.mu-w{background:#1F7A4D}.mu-l{background:#B3412E}.mu-d{background:#6B7A72}.mu-t small{font-size:10px;color:var(--mute)}
 .r5d{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.r5d summary{font-weight:800;font-size:14px;cursor:pointer}.r5d h4{margin:12px 0 4px;font-size:13px}table.r5{width:100%;border-collapse:collapse;font-size:11.5px}table.r5 th,table.r5 td{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}table.r5 th{color:var(--mute);font-weight:700}
@@ -505,7 +506,7 @@ const CONFIG = {
   WX_LAT: 35.8302, WX_LON: 128.2470, WX_PLACE: '대경볼파크',   // 날씨 기본 위치 (일정 탭에 위도·경도 열을 넣으면 그 경기만 그 위치)
   DESC: '대구',
   TABS: { members: '팀원', schedule: '일정', lineup: '라인업' },
-  REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
+  REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록', pa: '타석기록' },  // 기록 탭(없어도 괜찮아요)
   VOTE_TAB: 'MVP투표',
   MVP_DAYS: 7,
   PREDICT: true,            // 승부 예측 사용 (Apps Script에 predict 기능이 있어야 해요)
@@ -682,7 +683,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v51 · 새로고침 개선';
+const BUILD = 'v52 · 스프레이·승리확률';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -869,6 +870,78 @@ const recOf = k => {
 const dkey = r => { const d = parseDate(String(r['날짜'] || '')); return d ? keyOf(d) : ''; };
 const byDate = (k, key) => recOf(k).filter(r => dkey(r) === key);
 function hasBox(key){ return byDate('boxBat', key).length > 0 || byDate('innings', key).length > 0; }
+/* ---------- 스프레이 차트 · 승리 확률 흐름 ---------- */
+// 타석 결과 한 칸 → 방향·종류 (예: 우중2 → 우중간 2루타, 二비 → 2루 뜬공, 좌월홈 → 홈런)
+function paParse(s){
+  s = String(s || '').trim(); if(!s) return null;
+  if(/^(4구|볼넷|고4|고의4구)$/.test(s)) return { kind: 'bb' }; if(/^(HP|사구|死球)$/.test(s)) return { kind: 'bb' };
+  if(/삼진|낫아웃|^K$/.test(s)) return { kind: 'k' };
+  const m = s.match(/^(좌중|우중|좌선|우선|좌|중|우|유|二|三|一|2|3|1|투|포|捕)/); if(!m) return null;
+  const D = { '좌중': 'LC', '우중': 'RC', '좌선': 'LL', '우선': 'RL', '좌': 'LF', '중': 'CF', '우': 'RF', '유': 'SS', '二': '2B', '2': '2B', '三': '3B', '3': '3B', '一': '1B', '1': '1B', '투': 'P', '포': 'C', '捕': 'C' }[m[1]];
+  const r = s.slice(m[1].length);
+  const kind = /홈|런/.test(r) ? 'hr' : /^월?3|3루타|^3$/.test(r) ? 'h3' : /^월?2|2루타|^2$/.test(r) ? 'h2' : /안|^1$|타$/.test(r) ? 'h1' : /실/.test(r) ? 'e' : /희/.test(r) ? 'sac' : 'out';
+  return { dir: D, kind, of: ['LC', 'RC', 'LL', 'RL', 'LF', 'CF', 'RF'].includes(D) };
+}
+const SPRAY_XY = { LL: [55, 150], LF: [80, 110], LC: [125, 75], CF: [180, 58], RC: [235, 75], RF: [280, 110], RL: [305, 150], SS: [140, 195], '3B': [112, 232], '2B': [222, 195], '1B': [248, 232], P: [180, 248], C: [180, 318] };
+function paRows(name){ return (recOf('pa') || []).filter(r => r['이름'] === name && (!r['팀'] || r['팀'] === CONFIG.TEAM_NAME)); }
+function sprayHtml(name){
+  const ev = []; paRows(name).forEach(r => String(r['결과'] || '').split(/[,，]/).forEach(x => { const p = paParse(x); if(p && p.dir) ev.push(p); }));
+  if(ev.length < 3) return '';
+  const col = { h1: '#2FBF71', h2: '#F5B82E', h3: '#F28C28', hr: '#E5484D', out: '#9AA5A0', e: '#4C8DF6', sac: '#B58CF2' };
+  const dots = ev.map((p, i) => { const [x, y] = SPRAY_XY[p.dir], a = (hashS(name + i) % 360) * Math.PI / 180, rr = 6 + hashS(i + name) % 14; return `<circle cx="${(x + Math.cos(a) * rr).toFixed(1)}" cy="${(y + Math.sin(a) * rr).toFixed(1)}" r="${p.kind === 'out' ? 5 : 6.5}" fill="${col[p.kind]}" fill-opacity="${p.kind === 'out' ? .55 : .9}" stroke="#fff" stroke-width="1"/>`; }).join('');
+  const zone = k => ev.filter(p => k(p.dir)).length, n = ev.length, pc = v => Math.round(v / n * 100);
+  const L = zone(d => ['LL', 'LF', 'LC', 'SS', '3B'].includes(d)), C = zone(d => ['CF', 'P', 'C'].includes(d)), R = zone(d => ['RL', 'RF', 'RC', '2B', '1B'].includes(d));
+  const hits = ev.filter(p => /^h|hr/.test(p.kind)), of = ev.filter(p => p.of).length;
+  const lean = L / n >= .5 ? '좌측(3루 쪽)으로 많이 보내는 타자예요' : R / n >= .5 ? '우측(1루 쪽)으로 많이 보내는 타자예요' : '타구를 고르게 보내는 스프레이 히터예요';
+  return `<h4>🎯 스프레이 차트 <span class="muted" style="font-size:12px">타구 ${n}개</span></h4>
+    <div class="spray"><svg viewBox="0 0 360 370">${FIELD_SVG.replace(/<\/?svg[^>]*>/g, '')}${dots}</svg>
+    <div class="spz"><span>좌측 <b>${pc(L)}%</b></span><span>중앙 <b>${pc(C)}%</b></span><span>우측 <b>${pc(R)}%</b></span></div>
+    <div class="spl"><i style="background:${col.h1}"></i>안타 <i style="background:${col.h2}"></i>2루타 <i style="background:${col.h3}"></i>3루타 <i style="background:${col.hr}"></i>홈런 <i style="background:${col.out}"></i>아웃 <i style="background:${col.e}"></i>실책</div>
+    <div class="muted" style="font-size:12px;margin-top:4px">${lean} · 외야 타구 ${pc(of)}% · 안타 ${hits.length}개</div></div>`;
+}
+// 이닝별 승리 확률 (점수차·남은 이닝으로 계산한 근사치)
+function wpModel(diff, remUs, remThem){
+  const v = (remUs + remThem) * 3.2; if(v <= 0) return diff > 0 ? 1 : diff < 0 ? 0 : .5;
+  const z = diff / Math.sqrt(v), erf = x => { const s = Math.sign(x), a = Math.abs(x), t = 1 / (1 + .3275911 * a); return s * (1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - .284496736) * t + .254829592) * t * Math.exp(-a * a)); };
+  return .5 * (1 + erf(z / Math.SQRT2));
+}
+function wpFlow(g){
+  const key = keyOf(g._d), inn = byDate('innings', key); if(inn.length < 2) return null;
+  const us = inn.find(r => !r['팀'] || r['팀'] === CONFIG.TEAM_NAME), th = inn.find(r => r !== us); if(!us || !th) return null;
+  const away = String(g['선후공'] || us['선후공'] || '') === '선공'; // 우리가 먼저 공격
+  let n = 0; for(let i = 1; i <= 12; i++) if(String(us[i + '회'] ?? '') !== '' || String(th[i + '회'] ?? '') !== '') n = i; if(!n) return null;
+  const pts = [{ lab: '시작', p: .5 }]; let su = 0, st = 0;
+  for(let i = 1; i <= n; i++){
+    const halves = away ? [['us', us], ['th', th]] : [['th', th], ['us', us]];
+    halves.forEach(([who, row], hi) => { const v = String(row[i + '회'] ?? ''); if(v === '' || v === 'X') return; const r = N(v); if(who === 'us') su += r; else st += r;
+      const doneUs = away ? i : (hi === 1 ? i : i - 1), doneTh = away ? (hi === 1 ? i : i - 1) : i;
+      const p = wpModel(su - st, Math.max(0, n - doneUs), Math.max(0, n - doneTh));
+      pts.push({ lab: `${i}회${(away ? hi === 0 : hi === 1) ? '초' : '말'}`, i, who, r, p, su, st }); });
+  }
+  const last = pts[pts.length - 1]; last.p = su > st ? 1 : su < st ? 0 : .5;
+  let big = null; for(let k = 1; k < pts.length; k++){ const d = pts[k].p - pts[k - 1].p; pts[k].d = d; if(!big || Math.abs(d) > Math.abs(big.d)) big = pts[k]; }
+  return { pts, big, key };
+}
+function wpHtml(g){
+  const W = wpFlow(g); if(!W) return '';
+  const { pts, big, key } = W, w = 340, h = 120, x = i => 10 + i * (w - 20) / Math.max(1, pts.length - 1), y = p => 10 + (1 - p) * (h - 20);
+  const path = pts.map((q, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(q.p).toFixed(1)}`).join('');
+  const area = path + `L${x(pts.length - 1)},${y(.5)}L${x(0)},${y(.5)}Z`;
+  const bi = pts.indexOf(big);
+  const svg = `<svg viewBox="0 0 ${w} ${h + 18}" class="wp"><rect x="10" y="10" width="${w - 20}" height="${(h - 20) / 2}" fill="rgba(31,122,77,.08)"/><rect x="10" y="${h / 2}" width="${w - 20}" height="${(h - 20) / 2}" fill="rgba(179,65,46,.08)"/>
+    <line x1="10" x2="${w - 10}" y1="${y(.5)}" y2="${y(.5)}" stroke="currentColor" stroke-opacity=".25" stroke-dasharray="3 3"/><path d="${area}" fill="#1F7A4D" fill-opacity=".12"/><path d="${path}" fill="none" stroke="#1F7A4D" stroke-width="2.5"/>
+    ${pts.map((q, i) => `<circle cx="${x(i)}" cy="${y(q.p)}" r="${i === bi ? 5.5 : 2.5}" fill="${i === bi ? '#F5B82E' : '#1F7A4D'}"/>`).join('')}
+    <text x="12" y="20" font-size="10" fill="currentColor" opacity=".6">${esc(CONFIG.TEAM_NAME)} 100%</text><text x="12" y="${h - 4}" font-size="10" fill="currentColor" opacity=".6">0%</text>
+    ${pts.map((q, i) => i && (i % 2 === 0 || pts.length < 9) ? `<text x="${x(i)}" y="${h + 14}" font-size="9" text-anchor="middle" fill="currentColor" opacity=".6">${q.lab.replace('회', '')}</text>` : '').join('')}</svg>`;
+  const pa = byDate('pa', key);
+  const bigPA = big ? pa.filter(r => N(r['이닝']) === big.i && ((big.who === 'us') === (!r['팀'] || r['팀'] === CONFIG.TEAM_NAME))) : [];
+  const pct = v => Math.round(v * 100) + '%';
+  const rows = pts.slice(1).map(q => `<tr class="${q === big ? 'wpbig' : ''}"><td>${q.lab}</td><td>${q.who === 'us' ? esc(CONFIG.TEAM_NAME) : esc(g['상대팀'])}</td><td>${q.r ? '+' + q.r : '0'}</td><td>${q.su}:${q.st}</td><td>${pct(q.p)}</td><td class="${q.d > 0 ? 'up' : q.d < 0 ? 'dn' : ''}">${q.d > 0 ? '▲' : q.d < 0 ? '▼' : ''}${Math.abs(Math.round(q.d * 100))}</td></tr>`).join('');
+  return `<div class="sub">📈 승리 확률 흐름</div>${svg}
+    ${big ? `<div class="tip">⚡ 결정적 장면 · <b>${big.lab}</b> ${big.who === 'us' ? esc(CONFIG.TEAM_NAME) : esc(g['상대팀'])} ${big.r}득점 — 승리 확률 ${pct(big.p - big.d)} → <b>${pct(big.p)}</b>${bigPA.length ? `<div class="wppa">${bigPA.map(r => `<span><b>${esc(r['이름'])}</b> ${esc(String(r['결과']).replace(/,/g, ' → '))}</span>`).join('')}</div>` : ''}</div>` : ''}
+    <div class="tw"><table class="st wpt"><tr><th>이닝</th><th>공격</th><th>득점</th><th>스코어</th><th>승리확률</th><th>변화</th></tr>${rows}</table></div>
+    <div class="muted" style="font-size:11px">점수 차와 남은 이닝으로 계산한 근사치예요 (사회인야구 평균 득점 기준).</div>`;
+}
 function boxView(g){
   const key = keyOf(g._d);
   const inn = byDate('innings', key), bat0 = byDate('boxBat', key), pit0 = byDate('boxPit', key);
@@ -884,6 +957,7 @@ function boxView(g){
     h += `<div class="tw"><table class="st"><tr><th>팀</th>${cols.map(i => `<th>${i}</th>`).join('')}<th>R</th><th>H</th><th>E</th>${hasB ? '<th>B</th>' : ''}</tr>` +
       inn.map(r => `<tr><td>${esc(r['팀'])}</td>${cols.map(i => `<td>${esc(r[i + '회'])}</td>`).join('')}<td><b>${esc(r['R'])}</b></td><td>${esc(r['H'])}</td><td>${esc(r['E'])}</td>${hasB ? `<td>${esc(r['B'])}</td>` : ''}</tr>`).join('') + `</table></div>`;
   }
+  h += wpHtml(g);
   if(hasOpp){
     h += `<div class="seg" style="margin:8px 0"><button data-act="box-side" data-key="${key}" data-side="us" aria-pressed="${side === 'us'}">${esc(CONFIG.TEAM_NAME)}</button><button data-act="box-side" data-key="${key}" data-side="opp" aria-pressed="${side === 'opp'}">${esc(oppName)}</button></div>`;
   }
@@ -1156,6 +1230,7 @@ function playerView(name){
   h += compareSelect(name) + badgeHtml(name);
   if(bats.length){
     const games = bats.map(r => ({ d: dkey(r), opp: r['상대팀'], ab: N(r['타수']), h: N(r['안타']), rbi: N(r['타점']), sb: N(r['도루']), r: N(r['득점']), bb: N(r['볼넷']) + N(r['사구']) }));
+    h += sprayHtml(name);
     h += `<h4>🏏 타자 · 경기별 타격</h4>${trendSvg(games)}`;
     h += games.slice().reverse().map(g => `<div class="pdg"><span>${g.d.slice(5).replace('-', '/')} vs ${esc(g.opp)}</span><span>${g.ab}타수 ${g.h}안타${g.rbi ? ` ${g.rbi}타점` : ''}${g.sb ? ` ${g.sb}도루` : ''}${g.r ? ` ${g.r}득점` : ''}${g.bb ? ` ${g.bb}볼넷` : ''}</span></div>`).join('');
     const by = {}; games.forEach(g => { const k = normT(g.opp), o = by[k] = by[k] || { n: g.opp, g: 0, ab: 0, h: 0, rbi: 0 }; o.g++; o.ab += g.ab; o.h += g.h; o.rbi += g.rbi; });
