@@ -1226,7 +1226,7 @@ async function makeShareCard(key){
   if(r){ const col = r.cls === 'win' ? '#1F7A4D' : r.cls === 'loss' ? '#B3412E' : '#6B7A72'; x.fillStyle = col; x.beginPath(); x.roundRect ? x.roundRect(70, 480, 170, 170, 28) : x.rect(70, 480, 170, 170); x.fill(); x.fillStyle = '#fff'; x.font = F(900, 110); x.textAlign = 'center'; x.fillText(r.label, 155, 607); x.textAlign = 'left'; }
   if(sc){ x.fillStyle = '#fff'; x.font = F(900, 150); x.fillText(`${sc[1]} : ${sc[2]}`, r ? 290 : 70, 625); }
   let y = 740;
-  if(sc){ const a = +sc[1], bb = +sc[2], d = a - bb, tot = bats.reduce((s, b) => s + b.h, 0), sbs = bats.reduce((s, b) => s + b.sb, 0);
+  if(sc){ const a = +sc[1], bb = +sc[2], d = a - bb, tot = bats.reduce((s, b) => s + b.h, 0), sbs = byDate('boxBat', key).filter(b => usRow(b) && b['이름'] && !/합계|^계$|TOTAL/i.test(b['이름'])).reduce((s, b) => s + N(b['도루']), 0);
     const K = key + g['상대팀'];
     const hl = d >= 10 ? say('h1' + K, ['🔥 타선 대폭발! 압도적인 완승', '💥 콜드급 화력, 상대 마운드 초토화', '⚾ KBO 하이라이트급 대승']) : d >= 5 ? say('h2' + K, ['💪 투타 조화로 만든 여유로운 승리', '🎯 초반부터 몰아친 완승', '⚾ 흐름을 놓치지 않은 깔끔한 승리']) : d > 0 ? say('h3' + K, ['😤 끝까지 버텨 낸 짜릿한 승리', '🧱 접전 끝 승리, 이게 팀워크', '⚡ 손에 땀을 쥔 승부, 결국 우리가 웃었다']) : d === 0 ? say('h4' + K, ['🤝 팽팽했던 승부, 다음엔 끝낸다', '⚖️ 한 치도 물러서지 않은 무승부']) : d > -5 ? say('h5' + K, ['🔁 아쉬운 석패, 다음 경기에서 설욕', '💡 한 끗 차이, 디테일을 채우면 이긴다']) : say('h6' + K, ['📈 오늘은 배움의 날, 다음 경기 반등!', '🧭 요기 베라: “끝날 때까지 끝난 게 아니다” — 다음 판 간다']);
     x.fillStyle = '#F5B82E'; x.font = F(800, 38); x.fillText(hl, 70, 712, W - 140); y = 800;
