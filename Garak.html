@@ -1426,7 +1426,7 @@ function matchup(g){
   let op = null;
   if(t){ const b = String(t['비고'] || ''), m = b.match(/(\d+)승\s*(\d+)패(?:\s*(\d+)무)?/), p = b.match(/득점\s*([\d.]+)\s*\/\s*실점\s*([\d.]+)/), G = N(t['경기']);
     if(m && p && G) op = { g: G, w: +m[1], l: +m[2], d: +(m[3] || 0), rf: +p[1] * G, ra: +p[2] * G }; }
-  if(!op && rg.length){ op = { g: 0, w: 0, l: 0, d: 0, rf: 0, ra: 0 }; rg.forEach(r => { const m = String(r['c4']).match(/(\d+):(\d+)/); if(!m) return; op.g++; op.rf += +m[1]; op.ra += +m[2]; if(r['c3'] === '승') op.w++; else if(r['c3'] === '패') op.l++; else op.d++; }); op.recentOnly = true; }
+  if(!op && rg.length){ op = { g: 0, w: 0, l: 0, d: 0, rf: 0, ra: 0 }; rg.forEach(r => { const m = String(r['c4']).match(/(\d+)\s*[:\-–]\s*(\d+)/); if(!m) return; op.g++; op.rf += +m[1]; op.ra += +m[2]; if(r['c3'] === '승') op.w++; else if(r['c3'] === '패') op.l++; else op.d++; }); op.recentOnly = true; }
   if(!us.g || !op || !op.g) return null;
   const opRecent = rg.map(r => r['c3']).join('');
   const uf = us.rf / us.g, ua = us.ra / us.g, of = op.rf / op.g, oa = op.ra / op.g;
