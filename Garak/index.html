@@ -1263,7 +1263,7 @@ async function makeOppCard(key){
   const ptLines = pts.map(p => wrap(p, F(500, 28), W - 160));
   const bRows = bats.slice(0, 6), pRows = pits.slice(0, 4);
   const MU0 = matchup(g);
-  const H = 510 + (MU0 ? 560 : 0) + (games.length ? 90 + games.length * 50 : 0) + 90 + bRows.length * 50 + (pRows.length ? 90 + pRows.length * 50 : 0) + (pts.length ? 80 + ptLines.reduce((s, l) => s + l.length * 40 + 12, 0) : 0) + 60;
+  const H = 510 + (MU0 ? 600 : 0) + (games.length ? 90 + games.length * 50 : 0) + 90 + bRows.length * 50 + (pRows.length ? 90 + pRows.length * 50 : 0) + (pts.length ? 80 + ptLines.reduce((s, l) => s + l.length * 40 + 12, 0) : 0) + 60;
   c.width = W; c.height = H;
   const grd = x.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#06110b'); grd.addColorStop(.6, '#0E2418'); grd.addColorStop(1, '#1F3A5A');
   x.fillStyle = grd; x.fillRect(0, 0, W, H); x.fillStyle = '#C8262F'; x.fillRect(0, 0, W, 14);
