@@ -676,7 +676,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v42 · 기록 탭 글씨';
+const BUILD = 'v43 · 결과 카드 코멘트';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1182,10 +1182,35 @@ function compareSelect(name){
 
 /* ---------- 경기 결과 공유 카드 ---------- */
 function loadImg(src){ return new Promise(r => { if(!src) return r(null); const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
+function batComment(b, key){
+  const K = key + b.n, o = [];
+  if(b.h >= 3 && b.h === b.ab) o.push(say('a' + K, [`${b.ab}타수 전부 안타! 오늘의 타격 기계`, '방망이에 불이 붙었다 — 퍼펙트 타격', '이치로 빙의, 치는 족족 안타']));
+  else if(b.h >= 3) o.push(say('b' + K, [`${b.h}안타 맹타 쇼`, '멀티히트를 넘어선 하드캐리', '상대 투수가 가장 피하고 싶던 타자']));
+  if(b.rbi >= 3) o.push(say('c' + K, [`${b.rbi}타점 해결사`, '찬스마다 해결한 클러치 히터', 'KBO 4번 타자급 해결 능력']));
+  if(b.sb >= 3) o.push(say('d' + K, [`도루 ${b.sb}개, 베이스 위의 폭주기관차`, '상대 배터리를 흔든 발', `MLB 도루왕 모드 ${b.sb}도루`]));
+  if(b.r >= 3) o.push(say('e' + K, [`홈을 ${b.r}번 밟은 득점 머신`, '나가면 들어오는 득점 공장']));
+  if(b.bb >= 2) o.push(say('f' + K, ['선구안으로 만든 출루 — 머니볼 스타일', '볼 골라 나가는 리드오프의 정석']));
+  if(!o.length && b.h === 2) o.push(say('g' + K, ['멀티히트로 타선을 이어 줬어요', '두 번의 안타로 흐름을 만든 타자']));
+  if(!o.length && b.rbi) o.push(say('h' + K, ['귀중한 타점으로 승부에 힘을', '필요할 때 나온 한 방']));
+  if(!o.length) o.push(say('i' + K, ['팀 득점에 힘을 보탠 활약', '보이지 않는 곳에서 연결고리 역할']));
+  return o.slice(0, 2).join(' · ');
+}
+function pitComment(p, key){
+  const K = key + p['이름'], ip = parseFloat(p['이닝']) || 0, k = N(p['삼진']), er = N(p['자책']), res = p['결과'] || '';
+  if(res === '승' && ip >= 5) return say('p1' + K, ['선발승! 마운드를 끝까지 지킨 에이스', '긴 이닝을 책임진 승리의 주역', '“야구는 투수 놀음” — 오늘의 증명']);
+  if(res === '승') return say('p2' + K, ['승리투수, 결정적인 순간을 막았다', '팀 승리를 지킨 마운드']);
+  if(k >= 6) return say('p3' + K, [`삼진 ${k}개, 탈삼진 쇼`, '헛스윙을 부르는 구위']);
+  if(ip >= 3 && er <= 1) return say('p4' + K, ['짠물 피칭, 실점 최소화', '안정감 있는 투구로 흐름 유지']);
+  if(res === '세' || res === '세이브') return '경기를 닫은 수호신';
+  return say('p5' + K, ['마운드에서 끝까지 버틴 투혼', '팀을 위해 공을 던진 헌신']);
+}
 async function makeShareCard(key){
   const g = gamesOf().find(x => keyOf(x._d) === key); if(!g) return null;
   try{ await document.fonts.ready; }catch(e){}
-  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const bats = byDate('boxBat', key).filter(b => usRow(b) && b['이름'] && !/합계|^계$|TOTAL/i.test(b['이름'])).map(b => ({ n: b['이름'], ab: N(b['타수']), h: N(b['안타']), rbi: N(b['타점']), r: N(b['득점']), sb: N(b['도루']), bb: N(b['볼넷']) + N(b['사구']) }))
+    .sort((a, b) => (b.h * 3 + b.rbi * 2 + b.r + b.sb) - (a.h * 3 + a.rbi * 2 + a.r + a.sb)).filter(b => b.h || b.rbi || b.r).slice(0, 4);
+  const pits = byDate('boxPit', key).filter(p => usRow(p) && p['이름'] && !/합계|^계$|TOTAL/i.test(p['이름']));
+  const W = 1080, H = 1350 + bats.length * 44 + Math.min(pits.length, 2) * 44 + 60, c = document.createElement('canvas'); c.width = W; c.height = H;
   const x = c.getContext('2d'), F = (w, s) => `${w} ${s}px "Noto Sans KR","Apple SD Gothic Neo",sans-serif`;
   const grd = x.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#06110b'); grd.addColorStop(.55, '#0E2418'); grd.addColorStop(1, '#1F5A3A');
   x.fillStyle = grd; x.fillRect(0, 0, W, H);
@@ -1201,20 +1226,22 @@ async function makeShareCard(key){
   if(r){ const col = r.cls === 'win' ? '#1F7A4D' : r.cls === 'loss' ? '#B3412E' : '#6B7A72'; x.fillStyle = col; x.beginPath(); x.roundRect ? x.roundRect(70, 480, 170, 170, 28) : x.rect(70, 480, 170, 170); x.fill(); x.fillStyle = '#fff'; x.font = F(900, 110); x.textAlign = 'center'; x.fillText(r.label, 155, 607); x.textAlign = 'left'; }
   if(sc){ x.fillStyle = '#fff'; x.font = F(900, 150); x.fillText(`${sc[1]} : ${sc[2]}`, r ? 290 : 70, 625); }
   let y = 740;
+  if(sc){ const a = +sc[1], bb = +sc[2], d = a - bb, tot = bats.reduce((s, b) => s + b.h, 0), sbs = bats.reduce((s, b) => s + b.sb, 0);
+    const K = key + g['상대팀'];
+    const hl = d >= 10 ? say('h1' + K, ['🔥 타선 대폭발! 압도적인 완승', '💥 콜드급 화력, 상대 마운드 초토화', '⚾ KBO 하이라이트급 대승']) : d >= 5 ? say('h2' + K, ['💪 투타 조화로 만든 여유로운 승리', '🎯 초반부터 몰아친 완승', '⚾ 흐름을 놓치지 않은 깔끔한 승리']) : d > 0 ? say('h3' + K, ['😤 끝까지 버텨 낸 짜릿한 승리', '🧱 접전 끝 승리, 이게 팀워크', '⚡ 손에 땀을 쥔 승부, 결국 우리가 웃었다']) : d === 0 ? say('h4' + K, ['🤝 팽팽했던 승부, 다음엔 끝낸다', '⚖️ 한 치도 물러서지 않은 무승부']) : d > -5 ? say('h5' + K, ['🔁 아쉬운 석패, 다음 경기에서 설욕', '💡 한 끗 차이, 디테일을 채우면 이긴다']) : say('h6' + K, ['📈 오늘은 배움의 날, 다음 경기 반등!', '🧭 요기 베라: “끝날 때까지 끝난 게 아니다” — 다음 판 간다']);
+    x.fillStyle = '#F5B82E'; x.font = F(800, 38); x.fillText(hl, 70, 712, W - 140); y = 800;
+    if(sbs >= 8){ x.fillStyle = '#C9D8CE'; x.font = F(500, 28); x.fillText(`🏃 오늘 팀 도루 ${sbs}개 — 베이스 위를 지배한 발야구`, 70, 752, W - 140); y = 830; } }
   const vm = votesOf(key), vc = {}; Object.values(vm).forEach(p => vc[p] = (vc[p] || 0) + 1);
   const mvp = Object.keys(vc).sort((a, b) => vc[b] - vc[a])[0];
   if(mvp){ x.fillStyle = 'rgba(245,184,46,.14)'; x.fillRect(70, y - 56, W - 140, 86); x.fillStyle = '#F5B82E'; x.font = F(900, 44); x.fillText(`🏅 MVP  ${mvp}`, 100, y + 2); x.font = F(500, 28); x.fillStyle = '#E8D9A8'; x.textAlign = 'right'; x.fillText(`${vc[mvp]}표`, W - 100, y); x.textAlign = 'left'; y += 110; }
-  const bats = byDate('boxBat', key).filter(b => usRow(b) && b['이름'] && !/합계|^계$|TOTAL/i.test(b['이름'])).map(b => ({ n: b['이름'], ab: N(b['타수']), h: N(b['안타']), rbi: N(b['타점']), r: N(b['득점']), sb: N(b['도루']), bb: N(b['볼넷']) + N(b['사구']) }))
-    .sort((a, b) => (b.h * 3 + b.rbi * 2 + b.r + b.sb) - (a.h * 3 + a.rbi * 2 + a.r + a.sb)).filter(b => b.h || b.rbi || b.r).slice(0, 4);
   if(bats.length){
     x.fillStyle = '#9DB5A6'; x.font = F(700, 30); x.fillText('오늘의 활약', 70, y); y += 58;
-    bats.forEach(b => { x.fillStyle = '#fff'; x.font = F(700, 38); x.fillText(b.n, 70, y); x.fillStyle = '#C9D8CE'; x.font = F(500, 34); x.fillText(`${b.ab}타수 ${b.h}안타${b.rbi ? ' ' + b.rbi + '타점' : ''}${b.r ? ' ' + b.r + '득점' : ''}${b.sb ? ' ' + b.sb + '도루' : ''}${b.bb ? ' ' + b.bb + '볼넷' : ''}`, 300, y); y += 56; });
+    bats.forEach(b => { x.fillStyle = '#fff'; x.font = F(700, 38); x.fillText(b.n, 70, y); x.fillStyle = '#C9D8CE'; x.font = F(500, 34); x.fillText(`${b.ab}타수 ${b.h}안타${b.rbi ? ' ' + b.rbi + '타점' : ''}${b.r ? ' ' + b.r + '득점' : ''}${b.sb ? ' ' + b.sb + '도루' : ''}${b.bb ? ' ' + b.bb + '볼넷' : ''}`, 300, y, W - 370); y += 44; x.fillStyle = '#F5D27A'; x.font = F(500, 28); x.fillText('↳ ' + batComment(b, key), 300, y, W - 370); y += 56; });
     y += 14;
   }
-  const pits = byDate('boxPit', key).filter(p => usRow(p) && p['이름'] && !/합계|^계$|TOTAL/i.test(p['이름']));
-  if(pits.length && y < H - 200){
+  if(pits.length && y < H - 160){
     x.fillStyle = '#9DB5A6'; x.font = F(700, 30); x.fillText('마운드', 70, y); y += 58;
-    pits.slice(0, 2).forEach(p => { x.fillStyle = '#fff'; x.font = F(700, 38); x.fillText(p['이름'], 70, y); x.fillStyle = '#C9D8CE'; x.font = F(500, 34); x.fillText(`${p['이닝']}이닝 ${N(p['실점'])}실점 ${N(p['삼진'])}K${p['결과'] ? ' · ' + p['결과'] : ''}`, 300, y); y += 56; });
+    pits.slice(0, 2).forEach(p => { x.fillStyle = '#fff'; x.font = F(700, 38); x.fillText(p['이름'], 70, y); x.fillStyle = '#C9D8CE'; x.font = F(500, 34); x.fillText(`${p['이닝']}이닝 ${N(p['실점'])}실점 ${N(p['삼진'])}K${p['결과'] ? ' · ' + p['결과'] : ''}`, 300, y, W - 370); y += 44; x.fillStyle = '#F5D27A'; x.font = F(500, 28); x.fillText('↳ ' + pitComment(p, key), 300, y, W - 370); y += 56; });
   }
   x.fillStyle = 'rgba(255,255,255,.5)'; x.font = F(500, 26); x.textAlign = 'center';
   x.fillText((location.host ? location.host + location.pathname : CONFIG.TEAM_NAME).replace(/index\.html$/, ''), W / 2, H - 26); x.textAlign = 'left';
