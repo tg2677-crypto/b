@@ -498,12 +498,12 @@ details.roster summary{cursor:pointer;color:var(--mute);min-height:34px;display:
 
 <script>
 const CONFIG = {
-  SHEET_ID: '',  // OBP브라더스 구글 시트 ID (비어 있으면 예시 데이터로 보여요)
+  SHEET_ID: '13bQgNIZb9eh0B8MY13BENX-Yu449EHf_YoUlwdGHQN8',  // OBP브라더스 구글 시트 ID
   TEAM_NAME: 'OBP브라더스',     // 팀 이름
   LOGO: '',   // 팀 로고 (없으면 '')
   TAGLINE: '',   // 배너 영문 문구
-  WX_LAT: 37.5665, WX_LON: 126.9780, WX_PLACE: '서울',   // 날씨 기본 위치 (일정 탭에 위도·경도 열을 넣으면 그 경기만 그 위치)
-  DESC: '',
+  WX_LAT: 35.8302, WX_LON: 128.2470, WX_PLACE: '대경볼파크',   // 날씨 기본 위치 (일정 탭에 위도·경도 열을 넣으면 그 경기만 그 위치)
+  DESC: '대구',
   TABS: { members: '팀원', schedule: '일정', lineup: '라인업' },
   REC_TABS: { boxBat: '박스스코어', boxPit: '박스_투수', innings: '이닝스코어', seasonBat: '시즌_타자', seasonPit: '시즌_투수', team: '팀기록' },  // 기록 탭(없어도 괜찮아요)
   VOTE_TAB: 'MVP투표',
@@ -513,7 +513,7 @@ const CONFIG = {
   OPP_RECENT_TAB: '상대최근',   // 상대팀 최근 경기 상세 분석 (있으면 상대팀 분석 카드에 펼쳐보기로 나와요)
   OPP_TAB: '상대분석',       // 상대팀 분석 (자동 가져오기가 채워요. 없으면 지난 맞대결로 계산)              // 경기 후 며칠까지 MVP 투표를 받을지     // MVP 투표가 저장되는 탭 (Apps Script가 자동으로 만들어요)
   ATTEND_TAB: '참석',      // 참석 응답이 저장되는 탭 (Apps Script가 자동으로 만들어요)
-  ATTEND_URL: ''  // 참석 체크용 Apps Script 웹 앱 주소
+  ATTEND_URL: 'https://script.google.com/macros/s/AKfycbwBR8I9R1QR3q6Vv683VCBEMRBq9PPWkkbTua36di5yzgz03g9TnkxskWQyFUOCxuKK/exec'  // 참석 체크용 Apps Script 웹 앱 주소
 };
 
 /* ---------- 유틸 ---------- */
