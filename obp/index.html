@@ -916,7 +916,7 @@ function wpFlow(g){
     halves.forEach(([who, row], hi) => { const v = String(row[i + '회'] ?? ''); if(v === '' || v === 'X') return; const r = N(v); if(who === 'us') su += r; else st += r;
       const doneUs = away ? i : (hi === 1 ? i : i - 1), doneTh = away ? (hi === 1 ? i : i - 1) : i;
       const p = wpModel(su - st, Math.max(0, n - doneUs), Math.max(0, n - doneTh));
-      pts.push({ lab: `${i}회${(away ? hi === 0 : hi === 1) ? '초' : '말'}`, i, who, r, p, su, st }); });
+      pts.push({ lab: `${i}회${hi === 0 ? '초' : '말'}`, i, who, r, p, su, st }); });
   }
   const last = pts[pts.length - 1]; last.p = su > st ? 1 : su < st ? 0 : .5;
   let big = null; for(let k = 1; k < pts.length; k++){ const d = pts[k].p - pts[k - 1].p; pts[k].d = d; if(!big || Math.abs(d) > Math.abs(big.d)) big = pts[k]; }
