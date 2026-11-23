@@ -690,7 +690,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v56 · 도루 분리';
+const BUILD = 'v57 · 다시보기 속도';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1035,8 +1035,8 @@ function pbStop(){ if(state.pb){ state.pb.playing = false; clearTimeout(state.pb
 function pbStep(dir){ // 한 칸 이동 + 3D 애니메이션, 걸리는 시간(ms) 돌려줘요
   const P = state.pb; const prev = P.steps[P.i]; P.i = Math.max(0, Math.min(P.steps.length - 1, P.i + dir)); const s = P.steps[P.i];
   let ms = s.head ? 900 : 1900;
-  if(P.T){ if(dir === 1){ const d = p3Play(P, prev, s, P.speed); if(d) ms = d + 500; } else p3Setup(P, s); P.T.loop(); }
-  pbRender(); return ms / (P.T ? 1 : P.speed);
+  if(P.T){ if(dir === 1){ const d = p3Play(P, prev, s, P.speed * .5); if(d) ms = d + 500; } else p3Setup(P, s); P.T.loop(); }
+  pbRender(); return ms / (P.T ? 1 : P.speed * .5);
 }
 function pbTick(){ const P = state.pb; if(!P || !P.playing) return; if(P.i >= P.steps.length - 1){ P.playing = false; pbRender(); return; } const ms = pbStep(1); P.timer = setTimeout(pbTick, ms); }
 function pbRender(){
