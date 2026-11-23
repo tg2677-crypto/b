@@ -690,7 +690,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v55 · 3D 다시보기';
+const BUILD = 'v56 · 도루 분리';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -992,7 +992,7 @@ function pbBuild(g){
       else if(!q && /^희/.test(t)){ outs++; if(outs < 3) adv(1); desc = '희생번트 성공'; }
       else if(!q && /^병/.test(t)){ outs += 2; bases[0] = null; desc = '병살타 😱'; }
       else if(!q){ outs++; desc = esc(t); }
-      else if(q.kind === 'k'){ outs++; desc = /낫아웃|스낫/.test(t) ? '낫아웃' : say('k' + k + lab, ['삼진 아웃!', '헛스윙 삼진!', '루킹 삼진']); }
+      else if(q.kind === 'k'){ outs++; desc = /낫아웃|스낫/.test(t) ? '낫아웃' : '삼진 아웃!'; }
       else if(q.kind === 'bb'){ force(); desc = /HP|사구/.test(t) ? '몸에 맞는 공' : '볼넷 출루'; }
       else if(q.kind === 'h1'){ adv(q.of ? 2 : 1, 1); if(!q.of && bases[2] === null){} desc = `${PB_DIR[dir] || ''} 안타!`; }
       else if(q.kind === 'h2'){ adv(2, 2); desc = `${PB_DIR[dir] || ''} 2루타!`; }
@@ -1000,12 +1000,20 @@ function pbBuild(g){
       else if(q.kind === 'hr'){ adv(4, 4); desc = `${PB_DIR[dir] || ''} 홈런!!! 🎉`; }
       else if(q.kind === 'e'){ adv(1, 1); desc = `${PB_DIR[dir] || ''} 실책으로 출루`; }
       else if(q.kind === 'sac'){ outs++; if(outs < 3 && bases[2]){ bases[2] = null; scored++; } desc = `${PB_DIR[dir] || ''} 희생플라이`; }
-      else { outs++; const how = /땅/.test(t) ? '땅볼' : /직/.test(t) ? '직선타' : /파/.test(t) ? '파울플라이' : '뜬공'; if(/병/.test(t)){ outs++; bases[0] = null; } desc = `${PB_DIR[dir] || ''} ${how} 아웃`; if(outs < 3 && how === '뜬공' && q.of && bases[2] && runs + scored < actual){ bases[2] = null; scored++; desc += ' · 3루 주자 태그업 득점'; } }
-      p.ev.forEach(e => { if(/도루자|주자아웃|견제사/.test(e)){ outs++; for(let b = 2; b >= 0; b--) if(bases[b]){ bases[b] = null; break; } desc += ' · 주자 아웃'; } else if(/도루/.test(e)){ for(let b = 2; b >= 0; b--) if(bases[b] && (b === 2 || !bases[b + 1])){ if(b === 2) scored++; else bases[b + 1] = bases[b]; bases[b] = null; break; } desc += ' · 도루 성공 💨'; } else if(/폭투|포일|보크/.test(e)){ adv(1); desc += ' · ' + e; } });
+      else { outs++; const how = /병/.test(t) ? '병살타' : /땅/.test(t) ? '땅볼' : /직/.test(t) ? '직선타' : /파/.test(t) ? '파울플라이' : '뜬공'; if(/병/.test(t)){ outs++; bases[0] = null; } desc = `${PB_DIR[dir] || ''} ${how} 아웃`; if(outs < 3 && how === '뜬공' && q.of && bases[2] && runs + scored < actual){ bases[2] = null; scored++; desc += ' · 3루 주자 태그업 득점'; } }
       if(runs + scored > actual) scored = Math.max(0, actual - runs);
-      if(k === seq.length - 1 && runs + scored < actual) scored = actual - runs; // 기록과 맞추기
       runs += scored; score[w] += scored;
-      steps.push({ inn: i, half, who: w, name: p.name, raw: [p.t, ...p.ev].join(' → '), text: `${desc}${scored ? ` · <b>${scored}점 홈인!</b>` : ''}`, bases: [...bases], outs: Math.min(outs, 3), score: { ...score }, dir, kind: q ? q.kind : '', runs: scored });
+      steps.push({ inn: i, half, who: w, name: p.name, raw: p.t, text: `${desc}${scored ? ` · <b>${scored}점 홈인!</b>` : ''}`, bases: [...bases], outs: Math.min(outs, 3), score: { ...score }, dir, kind: q ? q.kind : '', runs: scored });
+      // 도루·폭투 같은 주루 플레이는 따로 한 장면씩
+      p.ev.forEach(ev => { let sc = 0, d = '', who = null;
+        if(/도루자|주자아웃|견제사/.test(ev)){ outs++; for(let b = 2; b >= 0; b--) if(bases[b]){ who = bases[b]; bases[b] = null; break; } d = `${who ? esc(who) + ' ' : ''}${/견제/.test(ev) ? '견제사' : /도루자/.test(ev) ? '도루 실패 — 아웃' : '주루사'}`; }
+        else if(/도루/.test(ev)){ for(let b = 2; b >= 0; b--) if(bases[b] && (b === 2 || !bases[b + 1])){ who = bases[b]; if(b === 2) sc++; else bases[b + 1] = bases[b]; bases[b] = null; d = `${esc(who)} ${b === 2 ? '홈스틸' : (b + 2) + '루 도루'} 성공 💨`; break; } if(!d) d = '도루 성공 💨'; }
+        else if(/폭투|포일|보크/.test(ev)){ adv(1); d = `${ev} — 주자 한 베이스씩 진루`; }
+        else return;
+        if(runs + sc > actual) sc = Math.max(0, actual - runs); runs += sc; score[w] += sc;
+        steps.push({ inn: i, half, who: w, name: who || p.name, ev: true, raw: ev, text: `${d}${sc ? ` · <b>${sc}점 홈인!</b>` : ''}`, bases: [...bases], outs: Math.min(outs, 3), score: { ...score }, kind: 'ev', runs: sc });
+      });
+      if(k === seq.length - 1 && runs < actual){ const fix = actual - runs, L = steps[steps.length - 1]; runs = actual; score[w] += fix; L.score = { ...score }; L.runs = (L.runs || 0) + fix; L.text += ` · <small>(이닝 기록 득점 ${fix}점 반영)</small>`; }
     });
   });
   const res = score.us > score.th ? '승리! 🎉' : score.us < score.th ? '패배 — 다음 경기 화이팅!' : '무승부';
@@ -1045,11 +1053,11 @@ function pbRender(){
     const ball = tgt ? `<circle r="6" fill="${/^h|hr/.test(s.kind) ? '#F5B82E' : '#fff'}" stroke="#333"><animate attributeName="cx" from="${PB_HOME[0]}" to="${tgt[0]}" dur=".7s" fill="freeze"/><animate attributeName="cy" from="${PB_HOME[1]}" to="${tgt[1]}" dur=".7s" fill="freeze"/></circle>` : '';
     document.getElementById('pb3d').innerHTML = `<svg viewBox="0 0 360 370" style="width:100%;display:block;border-radius:14px;background:#1d4d33">${FIELD_SVG.replace(/<\/?svg[^>]*>/g, '')}${runners}${ball}</svg>`;
   }
-  const feed = P.steps.slice(Math.max(1, P.i - 5), P.i + 1).reverse().map((x, k) => `<div class="pbf ${k ? '' : 'cur'} ${x.head ? 'hd' : ''}">${x.head ? x.text : `<span class="pbl">${x.inn ? x.inn + '회' + x.half : ''}</span>${x.name ? `<b>${esc(x.name)}</b> ` : ''}${x.text}${x.raw ? ` <small>(${esc(x.raw)})</small>` : ''}`}</div>`).join('');
+  const feed = P.steps.slice(Math.max(1, P.i - 5), P.i + 1).reverse().map((x, k) => `<div class="pbf ${k ? '' : 'cur'} ${x.head ? 'hd' : ''}">${x.head ? x.text : `<span class="pbl">${x.inn ? x.inn + '회' + x.half : ''}</span>${x.name && !x.ev ? `<b>${esc(x.name)}</b> ` : x.ev ? '🏃 ' : ''}${x.text}${x.raw ? ` <small>(${esc(x.raw)})</small>` : ''}`}</div>`).join('');
   const inns = [...new Set(P.steps.filter(x => x.head).map(x => x.inn + x.half))];
   const camL = { auto: '📷 기본', follow: '📷 공 따라가기', high: '📷 위에서' }[P.cam || 'auto'];
   document.getElementById('pbUI').innerHTML = `
-    <div class="pbnow ${s.end ? 'end' : ''}">${s.head ? s.text : `${s.name ? `<b>🏏 ${esc(s.name)}</b> — ` : ''}${s.text}`}${s.runs ? ` <span class="pbrun2">+${s.runs}</span>` : ''}</div>
+    <div class="pbnow ${s.end ? 'end' : ''}">${s.head ? s.text : `${s.name ? `<b>${s.ev ? '🏃' : '🏏'} ${esc(s.name)}</b> — ` : ''}${s.text}`}${s.runs ? ` <span class="pbrun2">+${s.runs}</span>` : ''}</div>
     <div class="pbc"><button data-act="pb-first">⏮</button><button data-act="pb-prev">◀</button><button class="pbplay" data-act="pb-play">${P.playing ? '⏸' : '▶'}</button><button data-act="pb-next">▶▶</button><button data-act="pb-speed">${P.speed}x</button></div>
     <div class="pbc" style="margin-top:6px">${P.flat ? '' : `<button data-act="pb-cam" style="font-size:13px;padding:0 10px">${camL}</button>`}</div>
     <input type="range" class="pbr" min="0" max="${P.steps.length - 1}" value="${P.i}" data-act="pb-seek">
@@ -1170,6 +1178,13 @@ function p3Setup(P, s){
 function p3Play(P, prev, s, speed){
   const T = P.T; if(!T || !s.name){ if(T) p3Setup(P, s); return 0; }
   p3Setup(P, prev); const sp = 1 / speed, rc = s.who === 'us' ? 0x1F7A4D : 0xB3412E;
+  if(s.ev){ // 주루 플레이: 투구 후 주자만 움직여요
+    p3Ball(T, [0, -6.05, 1.8], [0, 0, 1], .2, 300 * sp, 800 * sp); let end = 1100 * sp;
+    prev.bases.forEach((n, b) => { if(!n) return; const obj = T.runners[n + '@' + b]; if(!obj) return; const nb = s.bases.indexOf(n);
+      if(nb === b) return; if(nb < 0 && !s.runs){ p3Move(T, obj, P3.B[Math.min(2, b + 1)], 1100 * sp, 900 * sp, () => p3Anim(T, 0, 400, k => obj.scale.setScalar(1 - k))); end = Math.max(end, 2400 * sp); return; }
+      const to = nb < 0 ? [0, 0] : P3.B[nb]; p3Move(T, obj, to, 1000 * sp, 1100 * sp, nb < 0 ? () => p3Anim(T, 0, 400, k => obj.scale.setScalar(1 - k)) : null); end = Math.max(end, 2200 * sp);
+      if(/도루/.test(s.raw)){ const c = T.fielders.C; if(c) p3Ball(T, [0, 1.3, 1.5], [to[0], to[1], 1], 1.2, 1500 * sp, 700 * sp); } });
+    return end + 300 * sp; }
   const batter = p3Person(rc, s.name); batter.position.set(-.9, 0, .2); batter.lookAt(0, 0, -6); T.sc.add(batter); T.runners['__bat'] = batter;
   const pitchT = 900 * sp, t0 = 400 * sp;
   p3Ball(T, [0, -6.05, 1.8], [0, 0, 1], .2, t0, pitchT);
