@@ -683,7 +683,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v52 · 스프레이·승리확률';
+const BUILD = 'v53 · 뒤로가기';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -2496,6 +2496,23 @@ document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible' && CONFIG.SHEET_ID && Date.now() - state.lastLoad > 60000) load();
 });
 
+// 뒤로가기: 열린 창·라인업 만들기·다른 탭을 먼저 닫고, 더 닫을 게 없으면 진짜 뒤로가기
+(function(){
+  try{ history.replaceState({ base: 1 }, ''); history.pushState({ app: 1 }, ''); }catch(e){ return; }
+  const isOn = id => { const el = document.getElementById(id); return el && el.classList.contains('on'); };
+  window.addEventListener('popstate', () => {
+    let handled = true;
+    if(isOn('confirm')) closeConfirm();
+    else if(isOn('lightbox')) document.getElementById('lightbox').classList.remove('on');
+    else if(isOn('fbig')) closeBigField();
+    else if(isOn('pd')) closePlayer();
+    else if(state.tab === 'lineup' && state.luMode === 'build'){ state.luMode = 'view'; render(); }
+    else if(state.tab !== 'schedule'){ state.tab = 'schedule'; render(); window.scrollTo(0, 0); }
+    else handled = false;
+    if(handled){ try{ history.pushState({ app: 1 }, ''); }catch(e){} }
+    else history.back();
+  });
+})();
 render();
 load();
 </script>
