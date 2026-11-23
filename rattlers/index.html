@@ -295,6 +295,7 @@ th.sorted{color:var(--ink)}
 .pbfield{position:relative}.pbfield svg{width:100%;max-height:44vh;display:block;border-radius:14px;background:#1d4d33}.pbrun{position:absolute;top:10px;right:14px;background:#C8262F;color:#fff;font-weight:900;font-size:20px;border-radius:10px;padding:4px 10px;animation:pbpop .6s}@keyframes pbpop{0%{transform:scale(.3)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
 .pbnow{margin:8px 0;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:15px;min-height:44px}.pbnow.end{background:#1F7A4D;color:#fff}.pbc{display:flex;justify-content:center;gap:8px}.pbc button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;min-width:44px;height:40px;font-size:16px;cursor:pointer}.pbc .pbplay{background:#1F7A4D;color:#fff;min-width:64px}.pbr{width:100%;margin:8px 0}
 .pbinn{display:flex;flex-wrap:wrap;gap:4px}.pbinn button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 9px;font-size:12px;cursor:pointer}.pbfeed{margin-top:8px;font-size:13px}.pbf{padding:5px 0;border-bottom:1px dashed var(--line);opacity:.7}.pbf.cur{opacity:1}.pbf.hd{font-weight:800;color:var(--mute)}.pbl{display:inline-block;min-width:44px;color:var(--mute);font-size:12px}.pbf small{color:var(--mute)}
+.pbfield3{position:relative;width:100%;border-radius:14px;overflow:hidden;background:#87b9e6;min-height:200px}.pbfield3 canvas{display:block;width:100%!important;height:auto!important}.pbload{padding:80px 0;text-align:center;color:#123}.pbdia{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:3px}.pbdia i{display:inline-block;width:9px;height:9px;transform:rotate(45deg);border:1.5px solid #fff;margin:0 4px}.pbdia i.on{background:#F5B82E;border-color:#F5B82E}.pbdia span{display:flex;gap:8px}.pbrun2{display:inline-block;background:#C8262F;color:#fff;font-weight:900;border-radius:8px;padding:1px 8px;margin-left:4px;animation:pbpop .6s}
 .mu-k{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.mu-k>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}.mu-k small{font-size:11px;color:var(--mute)}.mu-k b{font-size:16px}.mu-k span{font-size:12px}.mu-k em{font-style:normal;font-size:11.5px;color:var(--mute);line-height:1.4}
 .mu{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.mu h4{margin:0 0 8px;font-size:14px}.mu-bar{display:flex;border-radius:10px;overflow:hidden;font-size:12px;font-weight:800;color:#fff}.mu-bar span{padding:7px 8px;white-space:nowrap;overflow:hidden;min-width:0}.mu-bar span:first-child{background:#1F7A4D}.mu-bar span:last-child{background:#B3412E;text-align:right}.mu-sc{text-align:center;margin:8px 0;font-size:14px}.mu-sc b{font-size:20px}table.mu-t{width:100%;border-collapse:collapse;font-size:13px}table.mu-t td,table.mu-t th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:center}table.mu-t th{color:var(--mute);font-weight:600;font-size:12px;width:34%}.mu-b{font-weight:900;color:var(--accent,#1F7A4D)}.mu-t i{display:inline-block;width:18px;height:18px;line-height:18px;border-radius:5px;font-style:normal;font-size:11px;color:#fff;margin:0 1px}.mu-w{background:#1F7A4D}.mu-l{background:#B3412E}.mu-d{background:#6B7A72}.mu-t small{font-size:10px;color:var(--mute)}
 .r5d{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}.r5d summary{font-weight:800;font-size:14px;cursor:pointer}.r5d h4{margin:12px 0 4px;font-size:13px}table.r5{width:100%;border-collapse:collapse;font-size:11.5px}table.r5 th,table.r5 td{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}table.r5 th{color:var(--mute);font-weight:700}
@@ -689,7 +690,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v54 · 경기 다시보기';
+const BUILD = 'v55 · 3D 다시보기';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -991,7 +992,7 @@ function pbBuild(g){
       else if(!q && /^희/.test(t)){ outs++; if(outs < 3) adv(1); desc = '희생번트 성공'; }
       else if(!q && /^병/.test(t)){ outs += 2; bases[0] = null; desc = '병살타 😱'; }
       else if(!q){ outs++; desc = esc(t); }
-      else if(q.kind === 'k'){ outs++; desc = /낫아웃|스낫/.test(t) ? '낫아웃' : '삼진 아웃!'; }
+      else if(q.kind === 'k'){ outs++; desc = /낫아웃|스낫/.test(t) ? '낫아웃' : say('k' + k + lab, ['삼진 아웃!', '헛스윙 삼진!', '루킹 삼진']); }
       else if(q.kind === 'bb'){ force(); desc = /HP|사구/.test(t) ? '몸에 맞는 공' : '볼넷 출루'; }
       else if(q.kind === 'h1'){ adv(q.of ? 2 : 1, 1); if(!q.of && bases[2] === null){} desc = `${PB_DIR[dir] || ''} 안타!`; }
       else if(q.kind === 'h2'){ adv(2, 2); desc = `${PB_DIR[dir] || ''} 2루타!`; }
@@ -999,11 +1000,11 @@ function pbBuild(g){
       else if(q.kind === 'hr'){ adv(4, 4); desc = `${PB_DIR[dir] || ''} 홈런!!! 🎉`; }
       else if(q.kind === 'e'){ adv(1, 1); desc = `${PB_DIR[dir] || ''} 실책으로 출루`; }
       else if(q.kind === 'sac'){ outs++; if(outs < 3 && bases[2]){ bases[2] = null; scored++; } desc = `${PB_DIR[dir] || ''} 희생플라이`; }
-      else { outs++; const how = /병/.test(t) ? '병살타' : /땅/.test(t) ? '땅볼' : /직/.test(t) ? '직선타' : /파/.test(t) ? '파울플라이' : '뜬공'; if(/병/.test(t)){ outs++; bases[0] = null; } desc = `${PB_DIR[dir] || ''} ${how} 아웃`; if(outs < 3 && how === '뜬공' && q.of && bases[2] && runs + scored < actual){ bases[2] = null; scored++; desc += ' · 3루 주자 태그업 득점'; } }
+      else { outs++; const how = /땅/.test(t) ? '땅볼' : /직/.test(t) ? '직선타' : /파/.test(t) ? '파울플라이' : '뜬공'; if(/병/.test(t)){ outs++; bases[0] = null; } desc = `${PB_DIR[dir] || ''} ${how} 아웃`; if(outs < 3 && how === '뜬공' && q.of && bases[2] && runs + scored < actual){ bases[2] = null; scored++; desc += ' · 3루 주자 태그업 득점'; } }
       p.ev.forEach(e => { if(/도루자|주자아웃|견제사/.test(e)){ outs++; for(let b = 2; b >= 0; b--) if(bases[b]){ bases[b] = null; break; } desc += ' · 주자 아웃'; } else if(/도루/.test(e)){ for(let b = 2; b >= 0; b--) if(bases[b] && (b === 2 || !bases[b + 1])){ if(b === 2) scored++; else bases[b + 1] = bases[b]; bases[b] = null; break; } desc += ' · 도루 성공 💨'; } else if(/폭투|포일|보크/.test(e)){ adv(1); desc += ' · ' + e; } });
       if(runs + scored > actual) scored = Math.max(0, actual - runs);
-      let fix = 0; if(k === seq.length - 1 && runs + scored < actual){ fix = actual - runs - scored; scored += fix; } // 기록과 맞추기
-      runs += scored; score[w] += scored; if(fix) desc += ` · <small>(이닝 기록 득점 ${fix}점 반영)</small>`;
+      if(k === seq.length - 1 && runs + scored < actual) scored = actual - runs; // 기록과 맞추기
+      runs += scored; score[w] += scored;
       steps.push({ inn: i, half, who: w, name: p.name, raw: [p.t, ...p.ev].join(' → '), text: `${desc}${scored ? ` · <b>${scored}점 홈인!</b>` : ''}`, bases: [...bases], outs: Math.min(outs, 3), score: { ...score }, dir, kind: q ? q.kind : '', runs: scored });
     });
   });
@@ -1013,46 +1014,200 @@ function pbBuild(g){
 }
 function pbOpen(key){
   const g = gamesOf().find(x => keyOf(x._d) === key); const P = g && pbBuild(g); if(!P){ toast('다시보기에 필요한 타석 기록이 없어요'); return; }
-  state.pb = { ...P, i: 0, playing: false, speed: 1 };
-  document.getElementById('pb').classList.add('on'); pbRender();
+  state.pb = { ...P, i: 0, playing: false, speed: 1, T: null };
+  document.getElementById('pb').classList.add('on');
+  document.getElementById('pbBody').innerHTML = `<div id="pbTop"></div><div id="pb3d" class="pbfield3"><div class="pbload">3D 야구장 불러오는 중…</div></div><div id="pbUI"></div>`;
+  pbRender();
+  loadThree().then(ok => { const Q = state.pb; if(!Q || Q !== state.pb) return; const el = document.getElementById('pb3d');
+    if(!ok || !window.THREE){ Q.flat = true; pbRender(); return; }
+    try{ Q.T = p3Init(el); Q.T.camMode = Q.cam || 'auto'; p3Setup(Q, Q.steps[Q.i]); Q.T.loop(); }catch(e){ Q.flat = true; pbRender(); } });
 }
-function pbClose(){ pbStop(); const b = document.getElementById('pb'); if(b) b.classList.remove('on'); }
+function pbClose(){ pbStop(); const b = document.getElementById('pb'); if(b) b.classList.remove('on'); if(state.pb && state.pb.T){ try{ state.pb.T.r.dispose(); }catch(e){} } }
 function pbStop(){ if(state.pb){ state.pb.playing = false; clearTimeout(state.pb.timer); } }
-function pbTick(){ const P = state.pb; if(!P || !P.playing) return; if(P.i >= P.steps.length - 1){ P.playing = false; pbRender(); return; } P.i++; pbRender(); P.timer = setTimeout(pbTick, (P.steps[P.i].head ? 900 : 1900) / P.speed); }
+function pbStep(dir){ // 한 칸 이동 + 3D 애니메이션, 걸리는 시간(ms) 돌려줘요
+  const P = state.pb; const prev = P.steps[P.i]; P.i = Math.max(0, Math.min(P.steps.length - 1, P.i + dir)); const s = P.steps[P.i];
+  let ms = s.head ? 900 : 1900;
+  if(P.T){ if(dir === 1){ const d = p3Play(P, prev, s, P.speed); if(d) ms = d + 500; } else p3Setup(P, s); P.T.loop(); }
+  pbRender(); return ms / (P.T ? 1 : P.speed);
+}
+function pbTick(){ const P = state.pb; if(!P || !P.playing) return; if(P.i >= P.steps.length - 1){ P.playing = false; pbRender(); return; } const ms = pbStep(1); P.timer = setTimeout(pbTick, ms); }
 function pbRender(){
   const P = state.pb; if(!P) return; const s = P.steps[P.i], g = P.g;
   const us = CONFIG.TEAM_NAME, th = g['상대팀'];
-  const runners = s.bases.map((b, k) => b ? `<g><circle cx="${PB_BASE[k][0]}" cy="${PB_BASE[k][1] - 4}" r="11" fill="${s.who === 'us' ? '#1F7A4D' : '#B3412E'}" stroke="#fff" stroke-width="2"/><text x="${PB_BASE[k][0]}" y="${PB_BASE[k][1] - 22}" font-size="12" font-weight="800" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">${esc(String(b).slice(0, 3))}</text></g>` : '').join('');
-  const tgt = s.dir && SPRAY_XY[s.dir];
-  const ball = tgt ? `<circle r="6" fill="${/^h|hr/.test(s.kind) ? '#F5B82E' : '#fff'}" stroke="#333"><animate attributeName="cx" from="${PB_HOME[0]}" to="${tgt[0]}" dur=".7s" fill="freeze"/><animate attributeName="cy" from="${PB_HOME[1]}" to="${tgt[1]}" dur=".7s" fill="freeze"/></circle>` : '';
-  const batter = s.name ? `<text x="180" y="345" font-size="15" font-weight="800" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">🏏 ${esc(s.name)}</text>` : '';
   const outs = [0, 1, 2].map(k => `<i class="${k < s.outs ? 'on' : ''}"></i>`).join('');
+  const bs = s.bases.map(b => `<i class="${b ? 'on' : ''}"></i>`);
+  document.getElementById('pbTop').innerHTML = `
+    <div class="pd-top"><div><h2 style="font-size:18px">▶ 경기 다시보기</h2><div class="muted" style="font-size:12px">${fmtDate(g._d)} vs ${esc(th)} · 기록으로 재구성한 시뮬레이션</div></div><button class="pd-x" data-act="pb-close">✕</button></div>
+    <div class="pbs"><span class="${s.who === (P.away ? 'us' : 'th') ? 'atk' : ''}">${esc(P.away ? us : th)} <b>${P.away ? s.score.us : s.score.th}</b></span><span class="pbi">${s.inn ? s.inn + '회' + s.half : '경기 전'}<span class="pbdia">${bs[1]}<span>${bs[2]}${bs[0]}</span></span><span class="pbo">${outs}</span></span><span class="${s.who === (P.away ? 'th' : 'us') ? 'atk' : ''}"><b>${P.away ? s.score.th : s.score.us}</b> ${esc(P.away ? th : us)}</span></div>`;
+  if(P.flat){ // 3D를 못 쓰는 기기: 2D 그림
+    const runners = s.bases.map((b, k) => b ? `<g><circle cx="${PB_BASE[k][0]}" cy="${PB_BASE[k][1] - 4}" r="11" fill="${s.who === 'us' ? '#1F7A4D' : '#B3412E'}" stroke="#fff" stroke-width="2"/><text x="${PB_BASE[k][0]}" y="${PB_BASE[k][1] - 22}" font-size="12" font-weight="800" text-anchor="middle" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">${esc(String(b).slice(0, 3))}</text></g>` : '').join('');
+    const tgt = s.dir && SPRAY_XY[s.dir];
+    const ball = tgt ? `<circle r="6" fill="${/^h|hr/.test(s.kind) ? '#F5B82E' : '#fff'}" stroke="#333"><animate attributeName="cx" from="${PB_HOME[0]}" to="${tgt[0]}" dur=".7s" fill="freeze"/><animate attributeName="cy" from="${PB_HOME[1]}" to="${tgt[1]}" dur=".7s" fill="freeze"/></circle>` : '';
+    document.getElementById('pb3d').innerHTML = `<svg viewBox="0 0 360 370" style="width:100%;display:block;border-radius:14px;background:#1d4d33">${FIELD_SVG.replace(/<\/?svg[^>]*>/g, '')}${runners}${ball}</svg>`;
+  }
   const feed = P.steps.slice(Math.max(1, P.i - 5), P.i + 1).reverse().map((x, k) => `<div class="pbf ${k ? '' : 'cur'} ${x.head ? 'hd' : ''}">${x.head ? x.text : `<span class="pbl">${x.inn ? x.inn + '회' + x.half : ''}</span>${x.name ? `<b>${esc(x.name)}</b> ` : ''}${x.text}${x.raw ? ` <small>(${esc(x.raw)})</small>` : ''}`}</div>`).join('');
   const inns = [...new Set(P.steps.filter(x => x.head).map(x => x.inn + x.half))];
-  document.getElementById('pbBody').innerHTML = `
-    <div class="pd-top"><div><h2 style="font-size:18px">▶ 경기 다시보기</h2><div class="muted" style="font-size:12px">${fmtDate(g._d)} vs ${esc(th)} · 기록으로 재구성한 시뮬레이션</div></div><button class="pd-x" data-act="pb-close">✕</button></div>
-    <div class="pbs"><span class="${s.who === (P.away ? 'us' : 'th') ? 'atk' : ''}">${esc(P.away ? us : th)} <b>${P.away ? s.score.us : s.score.th}</b></span><span class="pbi">${s.inn ? s.inn + '회' + s.half : '경기 전'}<span class="pbo">${outs}</span></span><span class="${s.who === (P.away ? 'th' : 'us') ? 'atk' : ''}"><b>${P.away ? s.score.th : s.score.us}</b> ${esc(P.away ? th : us)}</span></div>
-    <div class="pbfield"><svg viewBox="0 0 360 370">${FIELD_SVG.replace(/<\/?svg[^>]*>/g, '')}${runners}${ball}${batter}</svg>${s.runs ? `<div class="pbrun">+${s.runs}</div>` : ''}</div>
-    <div class="pbnow ${s.end ? 'end' : ''}">${s.head ? s.text : `${s.name ? `<b>${esc(s.name)}</b> — ` : ''}${s.text}`}</div>
+  const camL = { auto: '📷 기본', follow: '📷 공 따라가기', high: '📷 위에서' }[P.cam || 'auto'];
+  document.getElementById('pbUI').innerHTML = `
+    <div class="pbnow ${s.end ? 'end' : ''}">${s.head ? s.text : `${s.name ? `<b>🏏 ${esc(s.name)}</b> — ` : ''}${s.text}`}${s.runs ? ` <span class="pbrun2">+${s.runs}</span>` : ''}</div>
     <div class="pbc"><button data-act="pb-first">⏮</button><button data-act="pb-prev">◀</button><button class="pbplay" data-act="pb-play">${P.playing ? '⏸' : '▶'}</button><button data-act="pb-next">▶▶</button><button data-act="pb-speed">${P.speed}x</button></div>
+    <div class="pbc" style="margin-top:6px">${P.flat ? '' : `<button data-act="pb-cam" style="font-size:13px;padding:0 10px">${camL}</button>`}</div>
     <input type="range" class="pbr" min="0" max="${P.steps.length - 1}" value="${P.i}" data-act="pb-seek">
     <div class="pbinn">${inns.map(x => `<button data-act="pb-jump" data-inn="${x}">${x.replace(/(\d+)/, '$1회')}</button>`).join('')}</div>
     <div class="pbfeed">${feed}</div>
-    <div class="muted" style="font-size:11px;margin-top:8px">타석 결과와 이닝 점수로 재구성한 화면이에요. 주자 진루와 득점 타이밍은 추정이라 실제와 조금 다를 수 있어요 (이닝 득점은 기록과 같게 맞췄어요).</div>`;
+    <div class="muted" style="font-size:11px;margin-top:8px">타석 결과와 이닝 점수로 재구성한 화면이에요. 수비 위치·주자 진루·득점 타이밍은 추정이라 실제와 다를 수 있어요 (이닝 득점은 기록과 같게 맞췄어요). 수비수 이름은 박스스코어 포지션 기준이에요.</div>`;
 }
 function pbAct(act, el){
   const P = state.pb; if(!P) return;
   if(act === 'pb-close'){ pbClose(); return; }
-  if(act === 'pb-play'){ P.playing = !P.playing; if(P.playing){ if(P.i >= P.steps.length - 1) P.i = 0; pbRender(); P.timer = setTimeout(pbTick, 600 / P.speed); } else { clearTimeout(P.timer); pbRender(); } return; }
+  if(act === 'pb-play'){ P.playing = !P.playing; if(P.playing){ if(P.i >= P.steps.length - 1){ P.i = 0; if(P.T) p3Setup(P, P.steps[0]); } pbRender(); P.timer = setTimeout(pbTick, 400); } else { clearTimeout(P.timer); pbRender(); } return; }
+  if(act === 'pb-cam'){ P.cam = { auto: 'follow', follow: 'high', high: 'auto' }[P.cam || 'auto']; if(P.T) P.T.camMode = P.cam; pbRender(); return; }
+  if(act === 'pb-speed'){ P.speed = P.speed === 1 ? 2 : P.speed === 2 ? .5 : 1; pbRender(); return; }
   pbStop();
-  if(act === 'pb-next') P.i = Math.min(P.steps.length - 1, P.i + 1);
-  else if(act === 'pb-prev') P.i = Math.max(0, P.i - 1);
-  else if(act === 'pb-first') P.i = 0;
-  else if(act === 'pb-speed'){ P.speed = P.speed === 1 ? 2 : P.speed === 2 ? 4 : 1; }
+  if(act === 'pb-next'){ pbStep(1); return; }
+  if(act === 'pb-prev'){ pbStep(-1); return; }
+  if(act === 'pb-first') P.i = 0;
   else if(act === 'pb-seek') P.i = +el.value;
   else if(act === 'pb-jump'){ const k = P.steps.findIndex(x => x.head && (x.inn + x.half) === el.dataset.inn); if(k >= 0) P.i = k; }
+  if(P.T){ p3Setup(P, P.steps[P.i]); P.T.loop(); }
   pbRender();
 }
+
+/* ---------- 경기 다시보기 3D (three.js) ---------- */
+const P3 = { HOME: [0, 0], B: [[6.36, -6.36], [0, -12.73], [-6.36, -6.36]], MOUND: [0, -6.05],
+  POS: { P: [0, -6.4], C: [0, 1.3], '1B': [7.6, -8.6], '2B': [3.8, -14.2], SS: [-3.8, -14.2], '3B': [-7.6, -8.6], LF: [-14.5, -23], CF: [0, -28], RF: [14.5, -23] },
+  ANG: { LL: -43, LF: -29, LC: -15, CF: 0, RC: 15, RF: 29, RL: 43, '3B': -36, SS: -14, '2B': 14, '1B': 36, P: 0, C: 0 } };
+const POS_ALIAS = { '투수': 'P', '포수': 'C', '1루': '1B', '2루': '2B', '3루': '3B', '유격': 'SS', '좌익': 'LF', '중견': 'CF', '우익': 'RF', P: 'P', C: 'C', '1B': '1B', '2B': '2B', '3B': '3B', SS: 'SS', LF: 'LF', CF: 'CF', RF: 'RF' };
+function loadThree(){
+  if(window.THREE) return Promise.resolve(true);
+  if(window.__threeP) return window.__threeP;
+  return window.__threeP = new Promise(res => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'; s.onload = () => res(true); s.onerror = () => res(false); document.head.appendChild(s); });
+}
+function p3Label(text, color){
+  const c = document.createElement('canvas'), x = c.getContext('2d'); c.width = 256; c.height = 64;
+  x.font = 'bold 34px "Noto Sans KR",sans-serif'; x.textAlign = 'center'; x.lineWidth = 7; x.strokeStyle = 'rgba(0,0,0,.85)'; x.strokeText(text, 128, 44); x.fillStyle = color || '#fff'; x.fillText(text, 128, 44);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); sp.scale.set(4, 1, 1); sp.renderOrder = 10; return sp;
+}
+function p3Person(color, name){
+  const g = new THREE.Group(), m = new THREE.MeshLambertMaterial({ color });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.32, .38, 1.3, 10), m); body.position.y = .95; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.3, 12, 10), new THREE.MeshLambertMaterial({ color: 0xf1c9a5 })); head.position.y = 1.85; g.add(head);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(.31, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m); cap.position.y = 1.9; g.add(cap);
+  const legs = new THREE.Mesh(new THREE.CylinderGeometry(.28, .22, .45, 8), new THREE.MeshLambertMaterial({ color: 0xeeeeee })); legs.position.y = .22; g.add(legs);
+  if(name){ const l = p3Label(name); l.position.y = 2.75; g.add(l); g.userData.label = l; }
+  g.userData.legs = legs; return g;
+}
+function p3Init(el){
+  const W = el.clientWidth || 360, H = Math.round(W * .78);
+  const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.setSize(W, H); el.innerHTML = ''; el.appendChild(r.domElement);
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0x87b9e6); sc.fog = new THREE.Fog(0x87b9e6, 60, 120);
+  const cam = new THREE.PerspectiveCamera(48, W / H, .1, 300); cam.position.set(0, 13, 17); cam.lookAt(0, 0, -11);
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x3a5f3a, .85)); const sun = new THREE.DirectionalLight(0xffffff, .7); sun.position.set(-20, 40, 20); sc.add(sun);
+  const mat = c => new THREE.MeshLambertMaterial({ color: c });
+  const grass = new THREE.Mesh(new THREE.CircleGeometry(31, 64, -Math.PI * .75, Math.PI * .5), mat(0x2f8a4e)); grass.rotation.x = -Math.PI / 2; grass.rotation.z = Math.PI; sc.add(grass);
+  const outer = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), mat(0x22603a)); outer.rotation.x = -Math.PI / 2; outer.position.y = -.02; sc.add(outer);
+  const dirt = new THREE.Mesh(new THREE.CircleGeometry(15.5, 48, -Math.PI * .75, Math.PI * .5), mat(0xb98a5a)); dirt.rotation.x = -Math.PI / 2; dirt.rotation.z = Math.PI; dirt.position.y = .01; sc.add(dirt);
+  const inG = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 7.6), mat(0x3a9c62)); inG.rotation.x = -Math.PI / 2; inG.rotation.z = Math.PI / 4; inG.position.set(0, .02, -6.36); sc.add(inG);
+  const mound = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.4, .25, 20), mat(0xb98a5a)); mound.position.set(0, .1, -6.05); sc.add(mound);
+  const hp = new THREE.Mesh(new THREE.CircleGeometry(1.6, 24), mat(0xb98a5a)); hp.rotation.x = -Math.PI / 2; hp.position.set(0, .015, 0); sc.add(hp);
+  [[0, 0], ...P3.B].forEach(([x, z], k) => { const b = new THREE.Mesh(new THREE.BoxGeometry(.55, .1, .55), mat(0xffffff)); b.position.set(x, .06, z); b.rotation.y = Math.PI / 4; sc.add(b); });
+  const line = (a, b) => { const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a[0], .04, a[1]), new THREE.Vector3(b[0], .04, b[1])]); sc.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffffff }))); };
+  line([0, 0], [-22, -22]); line([0, 0], [22, -22]);
+  const fence = new THREE.Mesh(new THREE.CylinderGeometry(31, 31, 1.6, 64, 1, true, Math.PI * .75, Math.PI * .5), new THREE.MeshLambertMaterial({ color: 0x1f3d6e, side: THREE.DoubleSide })); fence.position.y = .8; sc.add(fence);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 10), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x555555 })); ball.position.set(0, -5, 0); sc.add(ball);
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(.25, 12), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = .03; sc.add(shadow);
+  const T = { r, sc, cam, ball, shadow, el, fielders: {}, runners: {}, anims: [], camMode: 'auto', camT: new THREE.Vector3(0, 0, -11), camP: new THREE.Vector3(0, 13, 17) };
+  const loop = () => { if(!document.getElementById('pb') || !document.getElementById('pb').classList.contains('on')){ T.raf = null; return; }
+    const now = performance.now();
+    T.anims = T.anims.filter(a => { const k = Math.min(1, (now - a.t0) / a.dur); if(k >= 0) a.fn(k); return k < 1; });
+    shadow.position.x = ball.position.x; shadow.position.z = ball.position.z; shadow.visible = ball.position.y > -1;
+    let tgt = new THREE.Vector3(0, 0, -11), pos = new THREE.Vector3(0, 13, 17);
+    if(T.camMode === 'follow' && ball.position.y > -1){ tgt = new THREE.Vector3(ball.position.x * .8, 0, ball.position.z * .8 - 2); pos = new THREE.Vector3(ball.position.x * .35, 12, Math.max(6, ball.position.z * .35 + 15)); }
+    else if(T.camMode === 'high'){ tgt.set(0, 0, -12); pos.set(0, 42, 4); }
+    T.camT.lerp(tgt, .06); T.camP.lerp(pos, .05); cam.position.copy(T.camP); cam.lookAt(T.camT);
+    Object.values(T.fielders).concat(Object.values(T.runners)).forEach(p => { if(p.userData.moving) p.userData.legs.rotation.x = Math.sin(now / 70) * .5; else p.userData.legs.rotation.x = 0; });
+    r.render(sc, cam); T.raf = requestAnimationFrame(loop); };
+  T.loop = () => { if(!T.raf) T.raf = requestAnimationFrame(loop); };
+  T.resize = () => { const w = el.clientWidth || W, h = Math.round(w * .78); r.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); };
+  return T;
+}
+function p3Anim(T, delay, dur, fn){ T.anims.push({ t0: performance.now() + delay, dur, fn }); }
+function p3Move(T, obj, to, delay, dur, after){ const from = obj.position.clone(); obj.userData.moving = true;
+  p3Anim(T, delay, dur, k => { const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; obj.position.set(from.x + (to[0] - from.x) * e, 0, from.z + (to[1] - from.z) * e); obj.lookAt(to[0], 0, to[1]); if(k >= 1){ obj.userData.moving = false; if(after) after(); } }); }
+function p3Ball(T, from, to, h, delay, dur){ const y0 = from[2] ?? 1, y1 = to[2] ?? .3; p3Anim(T, delay, dur, k => { T.ball.position.set(from[0] + (to[0] - from[0]) * k, y0 + (y1 - y0) * k + 4 * h * k * (1 - k), from[1] + (to[1] - from[1]) * k); }); }
+function p3Land(dir, kind, raw){
+  const a = (P3.ANG[dir] ?? 0) * Math.PI / 180, inf = ['3B', 'SS', '2B', '1B', 'P', 'C'].includes(dir);
+  let d = inf ? ({ P: 4.5, C: 1.2, '3B': 9, '1B': 9, SS: 13, '2B': 13 }[dir]) : kind === 'hr' ? 36 : kind === 'h3' ? 29 : kind === 'h2' ? 26.5 : kind === 'h1' ? 19 : /직/.test(raw) ? 20 : 23;
+  if(inf && kind === 'h1') d += 1.5;
+  return [Math.sin(a) * d, -Math.cos(a) * d];
+}
+function p3Defense(P, half){
+  // 수비 팀 = 공격 팀의 반대. 박스스코어 포지션으로 이름 붙이기
+  const def = half.who === 'us' ? 'th' : 'us', isUs = r => !r['팀'] || r['팀'] === CONFIG.TEAM_NAME;
+  const rows = byDate('boxBat', P.key).filter(r => r['구분'] !== '합계' && (def === 'us') === isUs(r));
+  const pits = byDate('boxPit', P.key).filter(r => (def === 'us') === isUs(r));
+  const out = {}; rows.forEach(r => { const k = POS_ALIAS[String(r['포지션'] || '').trim()]; if(k && !out[k]) out[k] = r['이름']; });
+  if(pits[0]) out.P = pits[0]['이름'];
+  return out;
+}
+function p3Setup(P, s){
+  const T = P.T; if(!T) return;
+  const who = s.who || (P.steps.find(x => x.who) || {}).who; if(!who) return;
+  const sig = who + s.inn;
+  if(T.sig !== sig){ // 공수 교대: 수비수 다시 만들기
+    Object.values(T.fielders).forEach(f => T.sc.remove(f)); T.fielders = {};
+    const names = p3Defense(P, s), col = who === 'us' ? 0xB3412E : 0x1F7A4D;
+    Object.entries(P3.POS).forEach(([k, [x, z]]) => { const f = p3Person(col, names[k] || k); f.position.set(x, 0, z); f.lookAt(0, 0, 0); T.sc.add(f); T.fielders[k] = f; });
+    T.sig = sig;
+  }
+  Object.entries(P3.POS).forEach(([k, [x, z]]) => { const f = T.fielders[k]; if(f){ f.position.set(x, 0, z); f.lookAt(0, 0, 0); f.userData.moving = false; } });
+  // 주자
+  Object.values(T.runners).forEach(r => T.sc.remove(r)); T.runners = {};
+  const rc = who === 'us' ? 0x1F7A4D : 0xB3412E;
+  s.bases.forEach((n, b) => { if(!n) return; const r = p3Person(rc, n); r.position.set(P3.B[b][0], 0, P3.B[b][1]); T.sc.add(r); T.runners[n + '@' + b] = r; });
+  T.ball.position.set(0, -5, 0); T.anims = [];
+}
+function p3Play(P, prev, s, speed){
+  const T = P.T; if(!T || !s.name){ if(T) p3Setup(P, s); return 0; }
+  p3Setup(P, prev); const sp = 1 / speed, rc = s.who === 'us' ? 0x1F7A4D : 0xB3412E;
+  const batter = p3Person(rc, s.name); batter.position.set(-.9, 0, .2); batter.lookAt(0, 0, -6); T.sc.add(batter); T.runners['__bat'] = batter;
+  const pitchT = 900 * sp, t0 = 400 * sp;
+  p3Ball(T, [0, -6.05, 1.8], [0, 0, 1], .2, t0, pitchT);
+  let t = t0 + pitchT, q = s.kind, raw = (s.raw || '').split(' → ')[0];
+  const runTo = (obj, path, delay, legMs, after) => { let d = delay; path.forEach((pt, i) => { p3Move(T, obj, pt, d, legMs, i === path.length - 1 ? after : null); d += legMs; }); return d; };
+  const basePt = b => b >= 3 ? [0, 0] : P3.B[b];
+  // 주자 이동: 이전 베이스 → 새 베이스(또는 홈) 순서대로
+  const moveRunners = delay => { let end = delay;
+    prev.bases.forEach((n, b) => { if(!n) return; const obj = T.runners[n + '@' + b]; if(!obj) return;
+      const nb = s.bases.indexOf(n); const target = nb >= 0 ? nb : (s.runs || q === 'hr' ? 3 : -1); if(target === -1){ p3Anim(T, delay + 600 * sp, 300, k => obj.scale.setScalar(1 - k)); return; }
+      const path = []; for(let x = b + 1; x <= target; x++) path.push(basePt(x)); if(path.length) end = Math.max(end, runTo(obj, path, delay, 900 * sp, target >= 3 ? () => p3Anim(T, 0, 500, k => obj.scale.setScalar(1 - k)) : null)); });
+    const bb = s.bases.indexOf(s.name), bt = q === 'hr' ? 3 : bb;
+    if(bt >= 0){ const path = []; for(let x = 0; x <= bt; x++) path.push(basePt(x)); end = Math.max(end, runTo(batter, path, delay, 900 * sp, bt >= 3 ? () => p3Anim(T, 0, 500, k => batter.scale.setScalar(1 - k)) : null)); }
+    return end; };
+  if(q === 'k'){ T.ball.position.set(0, -5, 0); p3Anim(T, t, 600 * sp, k => batter.rotation.y += .05); return t + 1400 * sp; }
+  if(q === 'bb' || !s.dir){ return moveRunners(t + 300 * sp) + 600 * sp; }
+  const land = p3Land(s.dir, q, raw), fly = q === 'hr' || /비|플|희/.test(raw) || q === 'h2' || q === 'h3' || (q === 'h1' && ['LF', 'CF', 'RF', 'LC', 'RC'].includes(s.dir) && !/땅/.test(raw));
+  const ground = /땅|병/.test(raw) || (q === 'h1' && !fly) || q === 'e', hDur = (ground ? 1100 : q === 'hr' ? 2200 : 1800) * sp;
+  p3Ball(T, [0, -.6, 1], [land[0], land[1], q === 'hr' ? 4 : .3], ground ? .3 : /직/.test(raw) ? 1.6 : q === 'hr' ? 16 : 9, t, hDur);
+  // 가장 가까운 수비수가 공을 쫓아가요
+  let best = null, bd = 1e9; Object.entries(T.fielders).forEach(([k, f]) => { if(k === 'C' && s.dir !== 'C') return; const d = Math.hypot(f.position.x - land[0], f.position.z - land[1]); if(d < bd){ bd = d; best = k; } });
+  const fld = T.fielders[best], catchPt = q === 'hr' ? [land[0] * .86, land[1] * .86] : land;
+  if(fld) p3Move(T, fld, catchPt, t + 150 * sp, hDur * (q === 'hr' ? .9 : 1) + (ground ? 150 : 0) * sp);
+  // 다른 수비수들도 베이스 커버
+  const cover = { '1B': P3.B[0], '2B': P3.B[1], SS: [P3.B[1][0] - .4, P3.B[1][1] + .4], '3B': P3.B[2] };
+  Object.entries(cover).forEach(([k, pt]) => { if(k !== best && T.fielders[k]) p3Move(T, T.fielders[k], pt, t + 300 * sp, 1100 * sp); });
+  const endRun = moveRunners(t + 200 * sp);
+  const tLand = t + hDur;
+  if(q === 'out' || q === 'sac' || /병/.test(raw)){
+    if(ground){ p3Ball(T, [catchPt[0], catchPt[1], 1], [P3.B[0][0], P3.B[0][1], 1], 1.2, tLand + 250 * sp, 700 * sp); // 1루 송구
+      if(/병/.test(raw)){ p3Ball(T, [catchPt[0], catchPt[1], 1], [P3.B[1][0], P3.B[1][1], 1], 1, tLand + 250 * sp, 500 * sp); p3Ball(T, [P3.B[1][0], P3.B[1][1], 1], [P3.B[0][0], P3.B[0][1], 1], 1, tLand + 800 * sp, 600 * sp); }
+      p3Anim(T, tLand + 1000 * sp, 400, k => batter.scale.setScalar(1 - k)); return Math.max(endRun, tLand + 1700 * sp); }
+    p3Anim(T, tLand, 300, k => batter.scale.setScalar(1 - k)); return Math.max(endRun, tLand + 1200 * sp);
+  }
+  if(q !== 'hr'){ p3Ball(T, [catchPt[0], catchPt[1], 1], [P3.B[1][0] * .6, P3.B[1][1] * .6 - 1, 1.2], 2, tLand + 500 * sp, 1100 * sp); } // 내야로 송구
+  return Math.max(endRun, tLand + 1800 * sp);
+}
+
 function boxView(g){
   const key = keyOf(g._d);
   const inn = byDate('innings', key), bat0 = byDate('boxBat', key), pit0 = byDate('boxPit', key);
