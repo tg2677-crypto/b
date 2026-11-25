@@ -295,6 +295,7 @@ th.sorted{color:var(--ink)}
 .pbfield{position:relative}.pbfield svg{width:100%;max-height:44vh;display:block;border-radius:14px;background:#1d4d33}.pbrun{position:absolute;top:10px;right:14px;background:#C8262F;color:#fff;font-weight:900;font-size:20px;border-radius:10px;padding:4px 10px;animation:pbpop .6s}@keyframes pbpop{0%{transform:scale(.3)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
 .pbnow{margin:8px 0;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:15px;min-height:44px}.pbnow.end{background:#1F7A4D;color:#fff}.pbc{display:flex;justify-content:center;gap:8px}.pbc button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;min-width:44px;height:40px;font-size:16px;cursor:pointer}.pbc .pbplay{background:#1F7A4D;color:#fff;min-width:64px}.pbr{width:100%;margin:8px 0}
 .pbinn{display:flex;flex-wrap:wrap;gap:4px}.pbinn button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 9px;font-size:12px;cursor:pointer}.pbfeed{margin-top:8px;font-size:13px}.pbf{padding:5px 0;border-bottom:1px dashed var(--line);opacity:.7}.pbf.cur{opacity:1}.pbf.hd{font-weight:800;color:var(--mute)}.pbl{display:inline-block;min-width:44px;color:var(--mute);font-size:12px}.pbf small{color:var(--mute)}
+.pbfield3{overflow:hidden}.p3face{position:absolute;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5);pointer-events:none;background:#f1c9a5}
 .pbfield3{position:relative;width:100%;border-radius:14px;overflow:hidden;background:#87b9e6;min-height:200px}.pbfield3 canvas{display:block;width:100%!important;height:auto!important}.pbload{padding:80px 0;text-align:center;color:#123}.pbdia{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:3px}.pbdia i{display:inline-block;width:9px;height:9px;transform:rotate(45deg);border:1.5px solid #fff;margin:0 4px}.pbdia i.on{background:#F5B82E;border-color:#F5B82E}.pbdia span{display:flex;gap:8px}.pbrun2{display:inline-block;background:#C8262F;color:#fff;font-weight:900;border-radius:8px;padding:1px 8px;margin-left:4px;animation:pbpop .6s}
 .mu-k{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.mu-k>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}.mu-k small{font-size:11px;color:var(--mute)}.mu-k b{font-size:16px}.mu-k span{font-size:12px}.mu-k em{font-style:normal;font-size:11.5px;color:var(--mute);line-height:1.4}
 .mu{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.mu h4{margin:0 0 8px;font-size:14px}.mu-bar{display:flex;border-radius:10px;overflow:hidden;font-size:12px;font-weight:800;color:#fff}.mu-bar span{padding:7px 8px;white-space:nowrap;overflow:hidden;min-width:0}.mu-bar span:first-child{background:#1F7A4D}.mu-bar span:last-child{background:#B3412E;text-align:right}.mu-sc{text-align:center;margin:8px 0;font-size:14px}.mu-sc b{font-size:20px}table.mu-t{width:100%;border-collapse:collapse;font-size:13px}table.mu-t td,table.mu-t th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:center}table.mu-t th{color:var(--mute);font-weight:600;font-size:12px;width:34%}.mu-b{font-weight:900;color:var(--accent,#1F7A4D)}.mu-t i{display:inline-block;width:18px;height:18px;line-height:18px;border-radius:5px;font-style:normal;font-size:11px;color:#fff;margin:0 1px}.mu-w{background:#1F7A4D}.mu-l{background:#B3412E}.mu-d{background:#6B7A72}.mu-t small{font-size:10px;color:var(--mute)}
@@ -690,7 +691,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v57 · 다시보기 속도';
+const BUILD = 'v58 · 다시보기 프로필 사진';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1099,11 +1100,29 @@ function p3Label(text, color){
 function p3Person(color, name){
   const g = new THREE.Group(), m = new THREE.MeshLambertMaterial({ color });
   const body = new THREE.Mesh(new THREE.CylinderGeometry(.32, .38, 1.3, 10), m); body.position.y = .95; g.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.3, 12, 10), new THREE.MeshLambertMaterial({ color: 0xf1c9a5 })); head.position.y = 1.85; g.add(head);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.3, 12, 10), new THREE.MeshLambertMaterial({ color: 0xf1c9a5 })); head.position.y = 1.85; g.add(head); g.userData.head = head;
   const cap = new THREE.Mesh(new THREE.SphereGeometry(.31, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m); cap.position.y = 1.9; g.add(cap);
   const legs = new THREE.Mesh(new THREE.CylinderGeometry(.28, .22, .45, 8), new THREE.MeshLambertMaterial({ color: 0xeeeeee })); legs.position.y = .22; g.add(legs);
   if(name){ const l = p3Label(name); l.position.y = 2.75; g.add(l); g.userData.label = l; }
-  g.userData.legs = legs; return g;
+  g.userData.legs = legs;
+  if(color === 0x1F7A4D && name){ const m = (state.data.members || []).find(x => x['이름'] === name); if(m && /^https?:/.test(m['사진'] || '')) g.userData.photo = imgUrl(m['사진']); }
+  return g;
+}
+// 프로필 사진: 3D 머리 위치에 사진을 겹쳐 그려요 (CORS 걱정 없는 HTML 오버레이)
+function p3Faces(T){
+  const live = new Set(), W = T.r.domElement.clientWidth, H = T.r.domElement.clientHeight, v = new THREE.Vector3(), u = new THREE.Vector3();
+  Object.values(T.fielders).concat(Object.values(T.runners)).forEach(p => {
+    if(!p.userData.photo || !p.parent) return; live.add(p);
+    let img = T.faces.get(p);
+    if(!img){ img = document.createElement('img'); img.className = 'p3face'; img.src = p.userData.photo; img.onerror = () => { p.userData.photo = null; img.remove(); T.faces.delete(p); }; T.el.appendChild(img); T.faces.set(p, img); }
+    p.updateMatrixWorld(); v.set(0, 1.85, 0).applyMatrix4(p.matrixWorld); u.set(0, 2.2, 0).applyMatrix4(p.matrixWorld);
+    v.project(T.cam); u.project(T.cam);
+    const x = (v.x + 1) / 2 * W, y = (1 - v.y) / 2 * H, r = Math.max(6, Math.abs((u.y - v.y) / 2 * H) * 1.25);
+    const vis = v.z < 1 && p.scale.x > .2;
+    img.style.cssText = `left:${x - r}px;top:${y - r}px;width:${r * 2}px;height:${r * 2}px;opacity:${vis ? Math.min(1, p.scale.x) : 0}`;
+    if(p.userData.head) p.userData.head.visible = !vis;
+  });
+  T.faces.forEach((img, p) => { if(!live.has(p)){ img.remove(); T.faces.delete(p); } });
 }
 function p3Init(el){
   const W = el.clientWidth || 360, H = Math.round(W * .78);
@@ -1124,7 +1143,7 @@ function p3Init(el){
   const fence = new THREE.Mesh(new THREE.CylinderGeometry(31, 31, 1.6, 64, 1, true, Math.PI * .75, Math.PI * .5), new THREE.MeshLambertMaterial({ color: 0x1f3d6e, side: THREE.DoubleSide })); fence.position.y = .8; sc.add(fence);
   const ball = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 10), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x555555 })); ball.position.set(0, -5, 0); sc.add(ball);
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(.25, 12), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = .03; sc.add(shadow);
-  const T = { r, sc, cam, ball, shadow, el, fielders: {}, runners: {}, anims: [], camMode: 'auto', camT: new THREE.Vector3(0, 0, -11), camP: new THREE.Vector3(0, 13, 17) };
+  const T = { r, sc, cam, ball, shadow, el, faces: new Map(), fielders: {}, runners: {}, anims: [], camMode: 'auto', camT: new THREE.Vector3(0, 0, -11), camP: new THREE.Vector3(0, 13, 17) };
   const loop = () => { if(!document.getElementById('pb') || !document.getElementById('pb').classList.contains('on')){ T.raf = null; return; }
     const now = performance.now();
     T.anims = T.anims.filter(a => { const k = Math.min(1, (now - a.t0) / a.dur); if(k >= 0) a.fn(k); return k < 1; });
@@ -1134,7 +1153,7 @@ function p3Init(el){
     else if(T.camMode === 'high'){ tgt.set(0, 0, -12); pos.set(0, 42, 4); }
     T.camT.lerp(tgt, .06); T.camP.lerp(pos, .05); cam.position.copy(T.camP); cam.lookAt(T.camT);
     Object.values(T.fielders).concat(Object.values(T.runners)).forEach(p => { if(p.userData.moving) p.userData.legs.rotation.x = Math.sin(now / 70) * .5; else p.userData.legs.rotation.x = 0; });
-    r.render(sc, cam); T.raf = requestAnimationFrame(loop); };
+    r.render(sc, cam); p3Faces(T); T.raf = requestAnimationFrame(loop); };
   T.loop = () => { if(!T.raf) T.raf = requestAnimationFrame(loop); };
   T.resize = () => { const w = el.clientWidth || W, h = Math.round(w * .78); r.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); };
   return T;
