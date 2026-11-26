@@ -1,0 +1,27 @@
+name: 경기 일정 캘린더 갱신
+on:
+  schedule:
+    - cron: '17 */3 * * *'   # 3시간마다
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/build-calendars.mjs', '.github/workflows/calendars.yml']
+permissions:
+  contents: write
+concurrency: { group: calendars, cancel-in-progress: false }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: node scripts/build-calendars.mjs
+      - name: 바뀐 파일만 커밋
+        run: |
+          git add */calendar.ics
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+          git config user.name "calendar-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "캘린더 일정 갱신"
+          git pull --rebase origin main && git push origin HEAD:main
