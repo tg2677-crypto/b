@@ -702,13 +702,14 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v62 · 캘린더 자동 연동(구독)';
+const BUILD = 'v63 · 상대 분석 탭 분리';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
-const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
+const TAB_LIST = [['schedule','일정'],['analysis','분석'],['lineup','라인업'],['record','기록'],['members','팀원']];
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const TAB_ICON = {
   schedule: ico('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  analysis: ico('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5M8 11h6M11 8v6"/>'),
   record: ico('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   lineup: ico('<path d="M12 3l9 9-9 9-9-9z"/>'),
   members: ico('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 010 7M18 14.5c2 .7 3.5 2.5 3.5 5"/>')
@@ -2084,6 +2085,22 @@ function oppCard(g){
     <div class="seg"><button data-act="opp-side" data-side="bat" aria-pressed="${side === 'bat'}">🏏 타자</button><button data-act="opp-side" data-side="pit" aria-pressed="${side === 'pit'}">⚾ 투수</button></div>${body}${matchupHtml(g)}${oppRecentHtml(opp)}<button class="sharebtn" data-act="share-opp" data-key="${keyOf(g._d)}" style="margin-top:10px">📤 분석 카드 공유</button></div>`;
 }
 
+/* ---------- 화면: 분석 ---------- */
+function viewAnalysis(){
+  const t = today0();
+  const up = gamesOf().filter(g => !(g._d < t || (g._d.getTime() === t.getTime() && resultInfo(g)))).sort((a, b) => a._d - b._d);
+  if(!up.length) return `<div class="empty">예정된 경기가 없어서 분석할 상대가 없어요.<br><span style="font-size:13px">시트 “일정” 탭에 다음 경기가 등록되면 여기에 상대 분석이 나와요.</span></div>`;
+  let g = up.find(x => keyOf(x._d) === state.anaKey);
+  if(!g){ g = up[0]; state.anaKey = keyOf(g._d); }
+  const diff = Math.round((g._d - t) / DAY);
+  let html = up.length > 1 ? `<div class="seg" style="margin-bottom:10px;overflow-x:auto">${up.slice(0, 5).map(x => `<button data-act="ana-pick" data-key="${keyOf(x._d)}" aria-pressed="${x === g}">${x._d.getMonth() + 1}/${x._d.getDate()} ${esc(x['상대팀'])}</button>`).join('')}</div>` : '';
+  html += `<div class="card"><div class="next-row"><div><div class="date">${diff === 0 ? 'D-DAY' : 'D-' + diff} · ${fmtDate(g._d)} ${esc(g['시간'])}</div>
+    <div class="opp">vs ${esc(g['상대팀'])}${batTag(g)}</div>${h2hText(g['상대팀'])}</div><div class="date" style="text-align:right">${placeHtml(g)}</div></div></div>`;
+  const c = oppCard(g);
+  html += c || `<div class="empty">아직 ${esc(g['상대팀'])} 분석 자료가 없어요.<br><span style="font-size:13px">상대 기록이 모이면 여기에 타자·투수 분석과 전력 비교가 나와요.</span></div>`;
+  return html;
+}
+
 /* ---------- 화면: 일정 ---------- */
 function gamesOf(){
   return state.data.schedule.map(g => ({...g, _d: parseDate(g['날짜'])})).filter(g => g._d);
@@ -2138,6 +2155,7 @@ function viewSchedule(){
   if(upcoming.length){
     const n = upcoming[0];
     const diff = Math.round((n._d - t) / DAY);
+    const hasOpp = !!oppCard(n);
     const hasLineup = state.data.lineup.some(r => { const d = parseDate(r['날짜']); return d && keyOf(d) === keyOf(n._d); });
     html += `<section class="board" aria-label="다음 경기">
       <div class="dday">${diff === 0 ? 'D-DAY' : 'D-' + diff}</div>
@@ -2148,12 +2166,12 @@ function viewSchedule(){
         ${h2hText(n['상대팀'])}
         <div class="wx" id="wx"><span class="sm">날씨 확인 중…</span></div>
         ${calLinks()}
+        ${hasOpp ? `<button class="go" data-act="goto-ana" data-key="${keyOf(n._d)}">🔎 상대 분석 보기</button>` : ''}
         ${hasLineup ? `<button class="go" data-act="goto-lineup" data-key="${keyOf(n._d)}">라인업 보기</button>` : ''}
       </div></section>`;
     const nb = attendBlock(n);
     if(nb) html += `<div class="card" style="margin-top:10px">${nb}</div>`;
     html += predictCard(n);
-    html += oppCard(n);
     if(upcoming.length > 1){
       html += `<button class="more" data-act="more" data-k="up">${state.more.up ? '예정 경기 접기' : `예정 경기 더보기 (${upcoming.length - 1})`}</button>`;
     }
@@ -2737,7 +2755,7 @@ function render(){
   if(!state.loaded){ app.innerHTML = `<div class="empty">불러오는 중…</div>`; return; }
   const notice = state.demo ? `<div class="notice">샘플 데이터예요. 파일 위쪽 CONFIG의 SHEET_ID에 시트 ID를 넣으면 우리 팀 시트 내용으로 바뀌어요.</div>`
     : state.offline ? `<div class="notice">최신 내용을 불러오지 못해 마지막으로 저장된 내용을 보여주고 있어요.</div>` : '';
-  const body = state.tab === 'schedule' ? viewSchedule() : state.tab === 'lineup' ? viewLineup() : state.tab === 'record' ? viewRecord() : viewMembers();
+  const body = state.tab === 'schedule' ? viewSchedule() : state.tab === 'analysis' ? viewAnalysis() : state.tab === 'lineup' ? viewLineup() : state.tab === 'record' ? viewRecord() : viewMembers();
   const hero = state.tab === 'schedule' ? `<div class="hero"><div class="lg">${CONFIG.LOGO ? `<img src="${CONFIG.LOGO}" alt="${esc(CONFIG.TEAM_NAME)} 로고">` : '⚾'}</div><div><div class="tn">${esc(CONFIG.TEAM_NAME)}</div>${CONFIG.TAGLINE || CONFIG.DESC ? `<div>${CONFIG.TAGLINE ? `<span class="tg">${esc(CONFIG.TAGLINE)}</span>` : ''}${CONFIG.DESC ? `<span class="ds">${esc(CONFIG.DESC)}</span>` : ''}</div>` : ''}</div></div>` : '';
   app.innerHTML = notice + hero + body;
   if(state.tab === 'schedule') wxInit();
@@ -2810,6 +2828,8 @@ document.addEventListener('click', e => {
   else if(act === 'rec-sub'){ state.recSub = el.dataset.sub; render(); }
   else if(act === 'sort'){ state.recSort[el.dataset.kind] = el.dataset.col; render(); }
   else if(act === 'lineup-key'){ if(!el.dataset.key) return; state.lineupKey = el.dataset.key; render(); }
+  else if(act === 'goto-ana'){ state.anaKey = el.dataset.key; state.tab = 'analysis'; render(); window.scrollTo(0, 0); }
+  else if(act === 'ana-pick'){ state.anaKey = el.dataset.key; rerenderKeepScroll(); }
   else if(act === 'goto-lineup'){ state.lineupKey = el.dataset.key; state.tab = 'lineup'; render(); window.scrollTo(0, 0); }
   else if(act === 'photo'){
     const box = document.getElementById('lightbox');
