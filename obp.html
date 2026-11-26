@@ -104,6 +104,9 @@ svg.trend{width:100%;height:auto;display:block;background:var(--surface);border:
 .maplinks{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle;flex-wrap:wrap}
 .maplinks a{font-size:12px;font-weight:700;text-decoration:none;padding:2px 8px;border-radius:999px;border:1px solid currentColor;opacity:.9;color:inherit;white-space:nowrap}
 .board .maplinks a{color:var(--amber)}
+.callinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.callinks button,.callinks a{font-size:12px;font-weight:700;text-decoration:none;padding:5px 10px;border-radius:999px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer;white-space:nowrap;font-family:inherit;line-height:1.3}
+.board .callinks button,.board .callinks a{color:var(--amber)}
 .badges{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .bdg{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 4px;text-align:center;position:relative}
 .bdg .bi{font-size:26px;line-height:1.1}
@@ -691,7 +694,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v58 · 다시보기 프로필 사진';
+const BUILD = 'v59 · 일정 캘린더 저장';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1556,6 +1559,64 @@ function mapLinks(g){
 }
 const placeHtml = g => g['장소'] ? `${esc(g['장소'])}${mapLinks(g)}` : '';
 
+/* ---------- 캘린더에 저장 ---------- */
+function calInfo(g){
+  const d = g._d, hm = String(g['시간'] || '').match(/(\d{1,2})\s*[:시]\s*(\d{0,2})/);
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = x => x.getUTCFullYear() + pad(x.getUTCMonth() + 1) + pad(x.getUTCDate());
+  const stamp = x => ymd(x) + 'T' + pad(x.getUTCHours()) + pad(x.getUTCMinutes()) + '00Z';
+  const title = `⚾ ${CONFIG.TEAM_NAME} vs ${String(g['상대팀'] || '').trim() || '상대팀'}`;
+  const v = String(g['선후공'] || '');
+  const desc = [g['리그'] ? `리그: ${g['리그']}` : '', v.includes('선') ? '선공 (먼저 공격)' : v.includes('후') ? '후공 (나중에 공격)' : '',
+    `팀 페이지: ${location.origin}${location.pathname}`].filter(Boolean).join('\n');
+  let start, end, allDay = !hm;
+  if(hm){ // 한국 시간(UTC+9) → UTC, 경기 2시간
+    const hh = Math.min(23, +hm[1]), mm = Math.min(59, +(hm[2] || 0));
+    start = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), hh - 9, mm));
+    end = new Date(start.getTime() + 2 * 3600e3);
+  } else {
+    start = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    end = new Date(start.getTime() + DAY);
+  }
+  const s = allDay ? ymd(start) : stamp(start), e = allDay ? ymd(end) : stamp(end);
+  return { title, desc, place: String(g['장소'] || '').trim(), allDay, s, e, stamp, key: keyOf(d) };
+}
+function calGoogleUrl(g){
+  const c = calInfo(g);
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(c.title) +
+    '&dates=' + c.s + '/' + c.e + '&details=' + encodeURIComponent(c.desc) + (c.place ? '&location=' + encodeURIComponent(c.place) : '') + '&ctz=Asia/Seoul';
+}
+function calIcs(g){
+  const c = calInfo(g), enc = new TextEncoder();
+  const tx = v => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  const fold = line => { // 75바이트마다 줄 접기 (한글이 깨지지 않게 글자 단위)
+    let out = '', cur = '', n = 0;
+    for(const ch of line){ const b = enc.encode(ch).length; if(n + b > 74){ out += cur + '\r\n '; cur = ''; n = 1; } cur += ch; n += b; }
+    return out + cur;
+  };
+  const dt = (k, v) => c.allDay ? `${k};VALUE=DATE:${v}` : `${k}:${v}`;
+  const uid = c.key + '-' + (String(g['시간'] || '').replace(/\D/g, '') || 'x') + '-' + location.pathname.replace(/[^A-Za-z0-9]/g, '') + '@tg2677-crypto.github.io';
+  const alarm = (trig, msg) => ['BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:' + trig, 'DESCRIPTION:' + tx(msg), 'END:VALARM'];
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//baseball-team-page//KO', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT', 'UID:' + uid, 'DTSTAMP:' + c.stamp(new Date()), dt('DTSTART', c.s), dt('DTEND', c.e),
+    'SUMMARY:' + tx(c.title), c.place ? 'LOCATION:' + tx(c.place) : '', 'DESCRIPTION:' + tx(c.desc),
+    ...alarm('-P1D', c.title + ' 내일 경기'), ...alarm(c.allDay ? 'PT8H' : '-PT2H', c.title + ' 곧 경기 시작'),
+    'END:VEVENT', 'END:VCALENDAR'].filter(Boolean);
+  return L.map(fold).join('\r\n') + '\r\n';
+}
+function calDownload(key, time){
+  const g = gamesOf().find(x => keyOf(x._d) === key && String(x['시간'] || '') === (time || '')) || gamesOf().find(x => keyOf(x._d) === key);
+  if(!g) return;
+  const slug = (location.pathname.split('/').filter(Boolean).pop() || 'team').replace(/\.html?$/, '').replace(/[^A-Za-z0-9_-]/g, '') || 'team';
+  const ics = calIcs(g), name = `${slug}_${key}.ics`; // 한글 파일명은 일부 브라우저에서 깨져서 영문으로
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if(ios){ location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics); return; } // 아이폰: 캘린더 추가 화면이 바로 열려요
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+const calLinks = g => `<div class="callinks"><button type="button" data-act="cal-ics" data-key="${keyOf(g._d)}" data-time="${esc(g['시간'] || '')}" title="휴대폰 캘린더에 저장 (하루 전·2시간 전 알림)">📅 캘린더에 저장</button><a href="${esc(calGoogleUrl(g))}" target="_blank" rel="noopener">구글 캘린더</a></div>`;
+
 /* ---------- 배지 ---------- */
 function mvpWinners(){
   const by = {}; (state.data.votes || []).forEach(v => { const k = dkey(v); if(k && v['투표자'] && v['후보']) (by[k] = by[k] || {})[String(v['투표자']).trim()] = String(v['후보']).trim(); });
@@ -2075,6 +2136,7 @@ function viewSchedule(){
         <div class="meta">${fmtDate(n._d)} ${esc(n['시간'])}<br>${placeHtml(n)}</div>
         ${h2hText(n['상대팀'])}
         <div class="wx" id="wx"><span class="sm">날씨 확인 중…</span></div>
+        ${calLinks(n)}
         ${hasLineup ? `<button class="go" data-act="goto-lineup" data-key="${keyOf(n._d)}">라인업 보기</button>` : ''}
       </div></section>`;
     const nb = attendBlock(n);
@@ -2087,7 +2149,7 @@ function viewSchedule(){
     if(upcoming.length > 1 && state.more.up){
       html += `<h2>예정 경기</h2>` + upcoming.slice(1).map(g => `
         <div class="card"><div class="next-row"><div><div class="date">${fmtDate(g._d)} ${esc(g['시간'])}</div>
-        <div class="opp">vs ${esc(g['상대팀'])}${batTag(g)}</div>${h2hText(g['상대팀'])}</div><div class="date" style="text-align:right">${placeHtml(g)}</div></div>${attendFold(g)}</div>`).join('');
+        <div class="opp">vs ${esc(g['상대팀'])}${batTag(g)}</div>${h2hText(g['상대팀'])}</div><div class="date" style="text-align:right">${placeHtml(g)}</div></div>${calLinks(g)}${attendFold(g)}</div>`).join('');
     }
   }
   if(past.length){
@@ -2685,6 +2747,7 @@ document.addEventListener('click', e => {
   else if(act === 'fbig-close'){ closeBigField(); }
   else if(act === 'fbig-bg'){ if(e.target === el) closeBigField(); }
   else if(act === 'share-card'){ shareCard(el.dataset.key); }
+  else if(act === 'cal-ics'){ calDownload(el.dataset.key, el.dataset.time); }
   else if(act === 'share-opp'){ shareOpp(el.dataset.key); }
   else if(act === 'share-season'){ shareSeason(); }
   else if(act === 'pd-close'){ closePlayer(); }
