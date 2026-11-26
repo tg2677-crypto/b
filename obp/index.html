@@ -107,17 +107,6 @@ svg.trend{width:100%;height:auto;display:block;background:var(--surface);border:
 .callinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .callinks button,.callinks a{font-size:12px;font-weight:700;text-decoration:none;padding:5px 10px;border-radius:999px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer;white-space:nowrap;font-family:inherit;line-height:1.3}
 .board .callinks button,.board .callinks a{color:var(--amber)}
-.callinks .calother{border-style:dashed;opacity:.85}
-#calsheet{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
-#calsheet.on{display:flex}
-#calsheet .sheet{background:var(--surface);color:var(--ink);border-radius:16px;padding:20px 16px 16px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:8px}
-#calsheet p{margin:0 0 6px;font-size:17px;font-weight:700;text-align:center}
-#calsheet button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:54px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;cursor:pointer;text-align:left}
-#calsheet button b{font-size:16px}
-#calsheet button span{font-size:12px;opacity:.7;pointer-events:none}
-#calsheet button b{pointer-events:none}
-#calsheet button.cur{border-color:var(--chip-on);box-shadow:0 0 0 1px var(--chip-on) inset}
-#calsheet .x{align-items:center;min-height:46px;font-weight:700}
 .badges{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .bdg{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 4px;text-align:center;position:relative}
 .bdg .bi{font-size:26px;line-height:1.1}
@@ -705,7 +694,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v60 · 캘린더 저장 바로 연결';
+const BUILD = 'v61 · 캘린더 저장 기본 캘린더만';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -1592,11 +1581,6 @@ function calInfo(g){
   const s = allDay ? ymd(start) : stamp(start), e = allDay ? ymd(end) : stamp(end);
   return { title, desc, place: String(g['장소'] || '').trim(), allDay, s, e, stamp, key: keyOf(d), start, end };
 }
-function calGoogleUrl(g){
-  const c = calInfo(g);
-  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(c.title) +
-    '&dates=' + c.s + '/' + c.e + '&details=' + encodeURIComponent(c.desc) + (c.place ? '&location=' + encodeURIComponent(c.place) : '') + '&ctz=Asia/Seoul';
-}
 function calIcs(g){
   const c = calInfo(g), enc = new TextEncoder();
   const tx = v => String(v).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
@@ -1619,7 +1603,6 @@ function calGame(key, time){
   return gamesOf().find(x => keyOf(x._d) === key && String(x['시간'] || '') === (time || '')) || gamesOf().find(x => keyOf(x._d) === key);
 }
 const CAL_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const CAL_ANDROID = /Android/i.test(navigator.userAgent);
 function calDownload(g){
   const slug = (location.pathname.split('/').filter(Boolean).pop() || 'team').replace(/\.html?$/, '').replace(/[^A-Za-z0-9_-]/g, '') || 'team';
   const ics = calIcs(g), name = `${slug}_${keyOf(g._d)}.ics`; // 한글 파일명은 일부 브라우저에서 깨져서 영문으로
@@ -1627,53 +1610,11 @@ function calDownload(g){
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
   const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast("받은 파일의 '열기'를 누르면 기본 캘린더에 저장돼요", 4000);
 }
-// 안드로이드: 휴대폰 기본 캘린더 앱의 "일정 추가" 화면을 바로 열어요 (캘린더 앱이 여러 개면 휴대폰이 고르라고 물어봐요, 안 열리면 구글 캘린더로)
-function calAndroidUrl(g){
-  const c = calInfo(g), E = v => encodeURIComponent(v);
-  const begin = c.allDay ? Date.UTC(g._d.getFullYear(), g._d.getMonth(), g._d.getDate()) : c.start.getTime();
-  const end = c.allDay ? begin + DAY : c.end.getTime();
-  return 'intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/event;' +
-    `S.title=${E(c.title)};l.beginTime=${begin};l.endTime=${end};B.allDay=${c.allDay};` +
-    (c.place ? `S.eventLocation=${E(c.place)};` : '') + `S.description=${E(c.desc)};S.browser_fallback_url=${E(calGoogleUrl(g))};end`;
-}
-const CAL_PREF_KEY = 'calPref';
-const calPref = () => { try{ return localStorage.getItem(CAL_PREF_KEY) || ''; }catch(e){ return ''; } };
-function calRun(g, how){
-  if(how === 'google'){ window.open(calGoogleUrl(g), '_blank', 'noopener'); return; }
-  if(how === 'android'){ location.href = calAndroidUrl(g); return; }
-  calDownload(g);
-}
-function calSave(key, time){
-  const g = calGame(key, time); if(!g) return;
-  if(CAL_IOS) return calRun(g, 'ics');
-  if(CAL_ANDROID) return calRun(g, calPref() || 'android');
-  calPick(key, time); // PC 등: 어떤 캘린더를 쓸지 물어봐요
-}
-function calPick(key, time){
-  const g = calGame(key, time); if(!g) return;
-  let box = document.getElementById('calsheet');
-  if(!box){
-    box = document.createElement('div'); box.id = 'calsheet'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
-    box.addEventListener('click', e => {
-      if(e.target === box || e.target.dataset.cal === 'close'){ box.classList.remove('on'); return; }
-      const how = e.target.closest('[data-cal]') && e.target.closest('[data-cal]').dataset.cal; if(!how) return;
-      try{ localStorage.setItem(CAL_PREF_KEY, how); }catch(err){}
-      box.classList.remove('on'); calRun(box._g, how);
-    });
-    document.body.appendChild(box);
-  }
-  box._g = g;
-  const opts = [
-    CAL_IOS ? ['ics', '📱 아이폰 캘린더', '기본 캘린더 앱 · 하루 전·2시간 전 알림'] : null,
-    CAL_ANDROID ? ['android', '📱 휴대폰 기본 캘린더', '삼성·구글 등 설치된 캘린더 앱으로 바로 열려요'] : null,
-    ['google', '🗓 구글 캘린더', '구글 계정 캘린더에 바로 추가'],
-    CAL_IOS ? null : ['ics', '📄 파일로 받기 (.ics)', '아웃룩 등 다른 캘린더용 · 알림 포함']
-  ].filter(Boolean), cur = calPref();
-  box.innerHTML = `<div class="sheet"><p>어느 캘린더에 저장할까요?</p>${opts.map(([k, a, b]) => `<button type="button" data-cal="${k}"${k === cur ? ' class="cur"' : ''}><b>${a}</b><span>${b}</span></button>`).join('')}<button type="button" class="x" data-cal="close">닫기</button></div>`;
-  box.classList.add('on');
-}
-const calLinks = g => `<div class="callinks"><button type="button" data-act="cal-save" data-key="${keyOf(g._d)}" data-time="${esc(g['시간'] || '')}">📅 캘린더에 저장</button><button type="button" class="calother" data-act="cal-pick" data-key="${keyOf(g._d)}" data-time="${esc(g['시간'] || '')}">다른 캘린더</button></div>`;
+// 안드로이드 브라우저는 웹페이지가 캘린더 앱을 직접 열지 못하게 막아요 → .ics 파일을 받아 '열기'를 누르면 기본 캘린더(삼성·구글 등)에 들어가요
+function calSave(key, time){ const g = calGame(key, time); if(g) calDownload(g); }
+const calLinks = g => `<div class="callinks"><button type="button" data-act="cal-save" data-key="${keyOf(g._d)}" data-time="${esc(g['시간'] || '')}" title="휴대폰 기본 캘린더에 저장 (하루 전·2시간 전 알림)">📅 캘린더에 저장</button></div>`;
 
 /* ---------- 배지 ---------- */
 function mvpWinners(){
@@ -2806,7 +2747,6 @@ document.addEventListener('click', e => {
   else if(act === 'fbig-bg'){ if(e.target === el) closeBigField(); }
   else if(act === 'share-card'){ shareCard(el.dataset.key); }
   else if(act === 'cal-save'){ calSave(el.dataset.key, el.dataset.time); }
-  else if(act === 'cal-pick'){ calPick(el.dataset.key, el.dataset.time); }
   else if(act === 'share-opp'){ shareOpp(el.dataset.key); }
   else if(act === 'share-season'){ shareSeason(); }
   else if(act === 'pd-close'){ closePlayer(); }
