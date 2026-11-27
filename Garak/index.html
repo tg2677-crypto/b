@@ -706,7 +706,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v66 · 수비 기록(포지션별 처리율) + AI 추천 수비 반영';
+const BUILD = 'v67 · AI 감독 수비 배치를 출전 경험·수비 점수로만';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['analysis','분석'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -2477,9 +2477,12 @@ function bdCoach(pool){
   const nm = x => esc(x);
   const notes = [];
   // 1) 투수: 투수 기록이 있는 후보 중 평균자책 가장 낮은 선수 (3이닝 이상)
-  let P = pool.filter(x => pitInn(x) >= 9).sort((a, c) => era(a) - era(c))[0] || pool.filter(x => prefSlots(x).has('P')).sort((a, c) => val(c) - val(a))[0] || '';
+  let P = pool.filter(x => pitInn(x) >= 9).sort((a, c) => era(a) - era(c))[0] || pool.filter(x => defOf(x, 'P').g > 0).sort((a, c) => defOf(c, 'P').g - defOf(a, 'P').g)[0] || '';
   // 2) 포수: 포수 가능한 후보 중 타격 좋은 선수
-  let C = pool.filter(x => x !== P && prefSlots(x).has('C')).sort((a, c) => val(c) - val(a))[0] || '';
+  // 팀원 탭 포지션 입력값은 보지 않고, 박스스코어 출전 경험 + 수비 점수로만 정해요
+  const gAll = x => SLOTS.reduce((t, k) => t + defOf(x, k).g, 0);
+  const fit = (x, k) => { const c = defOf(x, k), w = Math.min(1, c.ch / 10), tg = gAll(x); return Math.max(val(x), 0) + (c.ch ? (defRate(c) - .75) * .6 * w : 0) + Math.min(c.g, 10) * .015 + (tg ? c.g / tg * .1 : 0); };
+  let C = pool.filter(x => x !== P && defOf(x, 'C').g > 0).sort((a, c) => fit(c, 'C') - fit(a, 'C'))[0] || '';
   const chosen = [P, C].filter(Boolean);
   pool.filter(x => !chosen.includes(x)).sort((a, c) => val(c) - val(a)).slice(0, n - chosen.length).forEach(x => chosen.push(x));
   const bench = pool.filter(x => !chosen.includes(x)).sort((a, c) => val(c) - val(a));
@@ -2488,14 +2491,11 @@ function bdCoach(pool){
   let rest = chosen.filter(x => x !== P && x !== C).sort((a, c) => val(c) - val(a));
   const need = SLOT_PRIORITY.filter(k => !slots[k]).slice(0, Math.min(9, chosen.length) - Object.keys(slots).length);
   const why = {};
-  const reg = x => { const t = String(memberOf(x)['포지션'] || '').toUpperCase(), set = new Set(); Object.entries(POS_KEY).forEach(([k, v]) => { if(t.includes(k.toUpperCase())) set.add(v); }); if(/외야/.test(t)) ['LF','CF','RF'].forEach(v => set.add(v)); if(/내야/.test(t)) ['1B','2B','3B','SS'].forEach(v => set.add(v)); return set; };
   // 그 자리를 볼 수 있는 후보 중 타격(OPS) + 수비(처리율·경험) 점수가 가장 높은 선수
-  const fit = (x, k) => { const c = defOf(x, k), w = Math.min(1, c.ch / 10); return Math.max(val(x), 0) + (c.ch ? (defRate(c) - .75) * .6 * w : 0) + Math.min(c.g, 10) * .01; };
-  need.forEach(k => { const cand = rest.filter(x => prefSlots(x).has(k)); if(!cand.length) return; const x = cand.sort((a, c) => fit(c, k) - fit(a, k))[0]; rest.splice(rest.indexOf(x), 1); slots[k] = x;
-    const c = defOf(x, k), bits = [reg(x).has(k) ? '포지션 등록' : '전에 뛴 자리'];
-    if(c.g) bits.push(`${SLOT_LABEL[k]} ${c.g}경기`); if(c.ch >= 3) bits.push(`처리율 ${Math.round(defRate(c) * 100)}%${c.e ? `·실책 ${c.e}` : ''}`);
+  need.forEach(k => { const cand = rest.filter(x => defOf(x, k).g > 0); if(!cand.length) return; const x = cand.sort((a, c) => fit(c, k) - fit(a, k))[0]; rest.splice(rest.indexOf(x), 1); slots[k] = x;
+    const c = defOf(x, k), bits = [`${SLOT_LABEL[k]} ${c.g}경기 출전`]; if(c.ch >= 3) bits.push(`처리율 ${Math.round(defRate(c) * 100)}%${c.e ? `·실책 ${c.e}` : ''}`);
     if(cand.length > 1) bits.push(`후보 ${cand.length}명 중 타격+수비 1위`); why[k] = bits.join(', '); });
-  need.filter(k => !slots[k]).forEach(k => { if(rest.length){ slots[k] = rest.shift(); why[k] = '맡을 선수가 없어 타격순'; } });
+  need.filter(k => !slots[k]).forEach(k => { if(rest.length){ slots[k] = rest.shift(); why[k] = k === 'P' ? '투수 경험자가 없어 임시 배치, 직접 정해 주세요' : '이 자리 출전 경험자가 없어 타격순'; } });
   if(dh && rest.length){ slots.DH = rest.shift(); why.DH = '타격 집중'; }
   // 4) 타순: 1번 출루율(+도루), 3번 OPS 최고, 4번 장타율, 2번 다음 OPS, 나머지 OPS순
   const left = chosen.filter(x => !(slots.DH && slots.P && x === slots.P)), take = fn => { left.sort((a, c) => fn(c) - fn(a)); return left.shift(); };
@@ -2513,7 +2513,7 @@ function bdCoach(pool){
   const pos = SLOT_PRIORITY.concat('DH').filter(k => why[k] && slots[k]).map(k => `${SLOT_LABEL[k]} <b>${nm(slots[k])}</b>(${why[k]})`);
   if(pos.length) notes.push('🧢 수비 배치 — ' + pos.join(' · '));
   notes.push(loreLine('c' + b.key));
-  notes.push('<span class="muted">올 시즌 기록과 포지션 정보로 계산한 추천이에요. 타석이 적은 선수는 기록을 낮춰 반영해요. 마음에 안 들면 바로 바꿔 보세요!</span>');
+  notes.push('<span class="muted">올 시즌 기록과 실제 출전 포지션(박스스코어)·수비 기록으로 계산한 추천이에요. 타석이 적은 선수는 기록을 낮춰 반영해요. 마음에 안 들면 바로 바꿔 보세요!</span>');
   b.coach = notes;
 }
 function bdAuto(kind){
