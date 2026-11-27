@@ -706,7 +706,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v65 · AI 추천 라인업에 수비 배치 이유 표시';
+const BUILD = 'v66 · 수비 기록(포지션별 처리율) + AI 추천 수비 반영';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['analysis','분석'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -908,6 +908,32 @@ function paParse(s){
 }
 const SPRAY_XY = { LL: [55, 150], LF: [80, 110], LC: [125, 75], CF: [180, 58], RC: [235, 75], RF: [280, 110], RL: [305, 150], SS: [140, 195], '3B': [112, 232], '2B': [222, 195], '1B': [248, 232], P: [180, 248], C: [180, 318] };
 function paRows(name){ return (recOf('pa') || []).filter(r => r['이름'] === name && (!r['팀'] || r['팀'] === CONFIG.TEAM_NAME)); }
+/* ---------- 수비 기록 (상대 타자의 타구 방향 + 그날 우리 수비 위치로 추정) ---------- */
+const DEF_DIR = { SS: 'SS', '2B': '2B', '3B': '3B', '1B': '1B', P: 'P', C: 'C', LF: 'LF', LL: 'LF', CF: 'CF', RF: 'RF', RL: 'RF' };
+const DEF_INF = new Set(['SS', '2B', '3B', '1B', 'P', 'C']);
+const posKeyOf = v => { const t = String(v || '').trim(); const k = POS_KEY[t] || POS_KEY[t.toUpperCase()]; if(k) return k; const f = t.split(/[-→,\/\s()]+/).find(Boolean) || ''; return POS_KEY[f] || POS_KEY[f.toUpperCase()] || ''; };
+let _defC = null;
+function defStats(){
+  const box = (state.data.rec && state.data.rec.boxBat) || [], pa = (state.data.rec && state.data.rec.pa) || [];
+  if(_defC && _defC.box === box && _defC.pa === pa) return _defC.m;
+  const m = {}, who = {}, cell = (n, k) => { const p = m[n] = m[n] || {}; return p[k] = p[k] || { g: 0, ch: 0, po: 0, e: 0, h: 0 }; };
+  box.forEach(r => { if(!usRow(r) || !r['이름']) return; const d = dkey(r), k = posKeyOf(r['포지션']); if(!d || !k || k === 'DH') return; cell(r['이름'], k).g++; const w = who[d] = who[d] || {}; if(!w[k]) w[k] = r['이름']; });
+  pa.forEach(r => { if(!r['팀'] || r['팀'] === CONFIG.TEAM_NAME) return; const w = who[dkey(r)]; if(!w) return;
+    String(r['결과'] || '').split(/[,，]/).forEach(x => { const p = paParse(x); if(!p || !p.dir) return; const k = DEF_DIR[p.dir], n = k && w[k]; if(!n) return;
+      const c = cell(n, k);
+      if(p.kind === 'out' || p.kind === 'sac'){ c.ch++; c.po++; } else if(p.kind === 'e'){ c.ch++; c.e++; } else if(DEF_INF.has(k) && p.kind === 'h1'){ c.ch++; c.h++; } }); });
+  _defC = { box, pa, m }; return m;
+}
+const defOf = (n, k) => (defStats()[n] || {})[k] || { g: 0, ch: 0, po: 0, e: 0, h: 0 };
+const defRate = c => c.ch ? c.po / c.ch : 0;
+function defHtml(name){
+  const p = defStats()[name]; if(!p) return '';
+  const rows = SLOTS.filter(k => p[k] && p[k].g).map(k => [k, p[k]]).sort((a, b) => b[1].g - a[1].g); if(!rows.length) return '';
+  const any = rows.some(([, c]) => c.ch);
+  const pc = c => c.ch ? Math.round(defRate(c) * 100) + '%' : '-';
+  return `<h4>🧤 수비 · 포지션별</h4><table class="h2t"><tr><th>포지션</th><th>경기</th>${any ? '<th>타구</th><th>아웃</th><th>실책</th><th>처리율</th>' : ''}</tr>${rows.map(([k, c]) => `<tr><td>${SLOT_LABEL[k]}</td><td>${c.g}</td>${any ? `<td>${c.ch}</td><td>${c.po}</td><td>${c.e}</td><td>${pc(c)}</td>` : ''}</tr>`).join('')}</table>
+    <div class="muted" style="font-size:12px;margin-top:4px">${any ? '상대 타자 타구 방향과 그날 수비 위치로 추정한 기록이에요. 처리율 = 내 쪽으로 온 타구 중 아웃으로 만든 비율 (내야는 빠져나간 안타 포함, 외야는 실책만 반영).' : '경기 수는 박스스코어 기준이에요. 상대 타석기록이 쌓이면 처리율도 보여 드려요.'}</div>`;
+}
 function sprayHtml(name){
   const ev = []; paRows(name).forEach(r => String(r['결과'] || '').split(/[,，]/).forEach(x => { const p = paParse(x); if(p && p.dir) ev.push(p); }));
   if(ev.length < 3) return '';
@@ -1544,7 +1570,7 @@ function playerView(name){
   if(sp && N(sp['선수게임']) > 0) h += `<h4>⚾ 투수</h4><div class="pdtiles">${T(fmtStat('ERA', sp['ERA']), '방어율')}${T(esc(sp['이닝']), '이닝')}${T(esc(sp['승']) + '-' + esc(sp['패']), '승-패')}${T(esc(sp['삼진']), '탈삼진')}${T(fmtStat('WHIP', sp['WHIP']), 'WHIP')}${T(esc(sp['선수게임']), '등판')}</div>`;
   const ar = (state.data.attend || []).filter(r => r.name === name), yes = ar.filter(r => r.answer === '참석').length;
   if(ar.length) h += `<h4>📅 출석</h4><div class="pdg"><span>참석 응답</span><span><b>${yes}</b> / ${ar.length}경기 (${Math.round(yes / ar.length * 100)}%)</span></div>`;
-  h += compareSelect(name) + badgeHtml(name);
+  h += compareSelect(name) + badgeHtml(name) + defHtml(name);
   if(bats.length){
     const games = bats.map(r => ({ d: dkey(r), opp: r['상대팀'], ab: N(r['타수']), h: N(r['안타']), rbi: N(r['타점']), sb: N(r['도루']), r: N(r['득점']), bb: N(r['볼넷']) + N(r['사구']) }));
     h += sprayHtml(name);
@@ -2436,7 +2462,12 @@ function bdCoach(pool){
   const need = SLOT_PRIORITY.filter(k => !slots[k]).slice(0, Math.min(9, chosen.length) - Object.keys(slots).length);
   const why = {};
   const reg = x => { const t = String(memberOf(x)['포지션'] || '').toUpperCase(), set = new Set(); Object.entries(POS_KEY).forEach(([k, v]) => { if(t.includes(k.toUpperCase())) set.add(v); }); if(/외야/.test(t)) ['LF','CF','RF'].forEach(v => set.add(v)); if(/내야/.test(t)) ['1B','2B','3B','SS'].forEach(v => set.add(v)); return set; };
-  need.forEach(k => { const i = rest.findIndex(x => prefSlots(x).has(k)); if(i >= 0){ slots[k] = rest.splice(i, 1)[0]; why[k] = reg(slots[k]).has(k) ? '포지션 등록' : '전에 뛴 자리'; } });
+  // 그 자리를 볼 수 있는 후보 중 타격(OPS) + 수비(처리율·경험) 점수가 가장 높은 선수
+  const fit = (x, k) => { const c = defOf(x, k), w = Math.min(1, c.ch / 10); return Math.max(val(x), 0) + (c.ch ? (defRate(c) - .75) * .6 * w : 0) + Math.min(c.g, 10) * .01; };
+  need.forEach(k => { const cand = rest.filter(x => prefSlots(x).has(k)); if(!cand.length) return; const x = cand.sort((a, c) => fit(c, k) - fit(a, k))[0]; rest.splice(rest.indexOf(x), 1); slots[k] = x;
+    const c = defOf(x, k), bits = [reg(x).has(k) ? '포지션 등록' : '전에 뛴 자리'];
+    if(c.g) bits.push(`${SLOT_LABEL[k]} ${c.g}경기`); if(c.ch >= 3) bits.push(`처리율 ${Math.round(defRate(c) * 100)}%${c.e ? `·실책 ${c.e}` : ''}`);
+    if(cand.length > 1) bits.push(`후보 ${cand.length}명 중 타격+수비 1위`); why[k] = bits.join(', '); });
   need.filter(k => !slots[k]).forEach(k => { if(rest.length){ slots[k] = rest.shift(); why[k] = '맡을 선수가 없어 타격순'; } });
   if(dh && rest.length){ slots.DH = rest.shift(); why.DH = '타격 집중'; }
   // 4) 타순: 1번 출루율(+도루), 3번 OPS 최고, 4번 장타율, 2번 다음 OPS, 나머지 OPS순
@@ -2452,7 +2483,7 @@ function bdCoach(pool){
   if(o3) notes.push(`3번 <b>${nm(o3)}</b> — OPS ${T(o3, 'OPS')}. ` + say('3' + b.key + o3, ['팀 최고의 타자를 3번에 — MLB 정석이에요.', '1회부터 타석이 돌아오는 팀의 중심.', '주자 있으면 해결, 없으면 출루. 만능 역할.']));
   if(o4) notes.push(`4번 <b>${nm(o4)}</b> — 장타율 ${T(o4, '장타율')}. ` + say('4' + b.key + o4, ['KBO 전통의 해결사 자리.', '앞에 쌓인 주자를 쓸어 담아 주세요.', '한 방이 필요할 때 믿고 맡기는 타순.']));
   if(bench.length) notes.push(`아쉽게 벤치: ${bench.slice(0, 3).map(x => `${nm(x)}(OPS ${T(x, 'OPS')}${N((batRowOf(x) || {})['타석']) < 8 ? ', 타석 적음' : ''})`).join(', ')} — 경기 중 대타·교체로 준비.`);
-  const pos = SLOT_PRIORITY.concat('DH').filter(k => why[k] && slots[k]).map(k => `${SLOT_LABEL[k]} <b>${nm(slots[k])}</b>(${why[k]}${why[k] === '맡을 선수가 없어 타격순' || k === 'DH' ? '' : ', 후보 중 OPS 1위'})`);
+  const pos = SLOT_PRIORITY.concat('DH').filter(k => why[k] && slots[k]).map(k => `${SLOT_LABEL[k]} <b>${nm(slots[k])}</b>(${why[k]})`);
   if(pos.length) notes.push('🧢 수비 배치 — ' + pos.join(' · '));
   notes.push(loreLine('c' + b.key));
   notes.push('<span class="muted">올 시즌 기록과 포지션 정보로 계산한 추천이에요. 타석이 적은 선수는 기록을 낮춰 반영해요. 마음에 안 들면 바로 바꿔 보세요!</span>');
