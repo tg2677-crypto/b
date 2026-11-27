@@ -706,7 +706,7 @@ function demoData(){
 }
 
 /* ---------- 상태 ---------- */
-const BUILD = 'v64 · 분석 탭 상대 선택 버튼 크기 조정';
+const BUILD = 'v65 · AI 추천 라인업에 수비 배치 이유 표시';
 const ME_KEY = 'team-me-' + CONFIG.SHEET_ID;
 const state = { predDraft:{}, openMvp:new Set(), openFold:new Set(), pending:null, openAttend:new Set(), me:(()=>{ try{ return localStorage.getItem(ME_KEY) || ''; }catch(e){ return ''; } })(), offline:false, tab:'schedule', data:{members:[],schedule:[],lineup:[],attend:[],votes:[],preds:[],rec:{}}, openBox:new Set(), luMode:'view', boxSide:{}, build:null, pw:(()=>{ try{ return sessionStorage.getItem('lineup-pw') || ''; }catch(e){ return ''; } })(), more:{up:false,past:false}, recSub:'bat', year:'', recSort:{bat:'',pit:''}, loaded:false, error:null, demo:false, lineupKey:null, query:'', lastLoad:0 };
 const TAB_LIST = [['schedule','일정'],['analysis','분석'],['lineup','라인업'],['record','기록'],['members','팀원']];
@@ -2461,9 +2461,11 @@ function bdCoach(pool){
   const slots = {}; if(P) slots.P = P; if(C) slots.C = C;
   let rest = chosen.filter(x => x !== P && x !== C).sort((a, c) => val(c) - val(a));
   const need = SLOT_PRIORITY.filter(k => !slots[k]).slice(0, Math.min(9, chosen.length) - Object.keys(slots).length);
-  need.forEach(k => { const i = rest.findIndex(x => prefSlots(x).has(k)); if(i >= 0) slots[k] = rest.splice(i, 1)[0]; });
-  need.filter(k => !slots[k]).forEach(k => { if(rest.length) slots[k] = rest.shift(); });
-  if(dh && rest.length) slots.DH = rest.shift();
+  const why = {};
+  const reg = x => { const t = String(memberOf(x)['포지션'] || '').toUpperCase(), set = new Set(); Object.entries(POS_KEY).forEach(([k, v]) => { if(t.includes(k.toUpperCase())) set.add(v); }); if(/외야/.test(t)) ['LF','CF','RF'].forEach(v => set.add(v)); if(/내야/.test(t)) ['1B','2B','3B','SS'].forEach(v => set.add(v)); return set; };
+  need.forEach(k => { const i = rest.findIndex(x => prefSlots(x).has(k)); if(i >= 0){ slots[k] = rest.splice(i, 1)[0]; why[k] = reg(slots[k]).has(k) ? '포지션 등록' : '전에 뛴 자리'; } });
+  need.filter(k => !slots[k]).forEach(k => { if(rest.length){ slots[k] = rest.shift(); why[k] = '맡을 선수가 없어 타격순'; } });
+  if(dh && rest.length){ slots.DH = rest.shift(); why.DH = '타격 집중'; }
   // 4) 타순: 1번 출루율(+도루), 3번 OPS 최고, 4번 장타율, 2번 다음 OPS, 나머지 OPS순
   const left = chosen.filter(x => !(slots.DH && slots.P && x === slots.P)), take = fn => { left.sort((a, c) => fn(c) - fn(a)); return left.shift(); };
   const o1 = take(x => stat(x, '출루율') + sb(x) * 0.004), o3 = take(val), o4 = take(x => stat(x, '장타율')), o2 = take(val);
@@ -2477,6 +2479,8 @@ function bdCoach(pool){
   if(o3) notes.push(`3번 <b>${nm(o3)}</b> — OPS ${T(o3, 'OPS')}. ` + say('3' + b.key + o3, ['팀 최고의 타자를 3번에 — MLB 정석이에요.', '1회부터 타석이 돌아오는 팀의 중심.', '주자 있으면 해결, 없으면 출루. 만능 역할.']));
   if(o4) notes.push(`4번 <b>${nm(o4)}</b> — 장타율 ${T(o4, '장타율')}. ` + say('4' + b.key + o4, ['KBO 전통의 해결사 자리.', '앞에 쌓인 주자를 쓸어 담아 주세요.', '한 방이 필요할 때 믿고 맡기는 타순.']));
   if(bench.length) notes.push(`아쉽게 벤치: ${bench.slice(0, 3).map(x => `${nm(x)}(OPS ${T(x, 'OPS')}${N((batRowOf(x) || {})['타석']) < 8 ? ', 타석 적음' : ''})`).join(', ')} — 경기 중 대타·교체로 준비.`);
+  const pos = SLOT_PRIORITY.concat('DH').filter(k => why[k] && slots[k]).map(k => `${SLOT_LABEL[k]} <b>${nm(slots[k])}</b>(${why[k]}${why[k] === '맡을 선수가 없어 타격순' || k === 'DH' ? '' : ', 후보 중 OPS 1위'})`);
+  if(pos.length) notes.push('🧢 수비 배치 — ' + pos.join(' · '));
   notes.push(loreLine('c' + b.key));
   notes.push('<span class="muted">올 시즌 기록과 포지션 정보로 계산한 추천이에요. 타석이 적은 선수는 기록을 낮춰 반영해요. 마음에 안 들면 바로 바꿔 보세요!</span>');
   b.coach = notes;
