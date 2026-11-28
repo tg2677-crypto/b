@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>카리스 기록 반영</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1b1f24;--mute:#6b7280;--acc:#1F5A3A;--bad:#b3412e;--line:#e5e7eb}
+@media (prefers-color-scheme: dark){:root{--bg:#121416;--card:#1c1f23;--ink:#e8eaed;--mute:#9aa0a6;--acc:#3FA06C;--bad:#e2725b;--line:#2c3036}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:6px 0 2px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.mute{color:var(--mute);font-size:13px}button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:13px 16px;width:100%;background:var(--acc);color:#fff;margin-top:8px}
+button.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}button:disabled{opacity:.45}
+input{font:inherit;width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left}
+.ok{color:var(--acc);font-weight:700}.bad{color:var(--bad);font-weight:700}ul{padding-left:18px;margin:6px 0}
+.score{font-size:28px;font-weight:800;text-align:center;margin:4px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>카리스 기록 반영</h1>
+<div class="mute">11/28(토) 국민낙곱새배 · 성곡야구장 · vs 태풍야구단</div>
+<div class="card"><div class="score">카리스 4 : 14 태풍야구단</div><div class="mute" style="text-align:center">4회 콜드 패 · 패전 김길태 · 승리 이희찬 · 홈런 양남규(태풍)</div></div>
+<div class="card" id="st">시트를 읽는 중…</div>
+<div class="card" id="pv" hidden></div>
+<div class="card" id="go" hidden>
+  <div class="mute">라인업 비밀번호를 넣고 반영을 누르면 시트에 저장돼요. 반영 전 내용은 이 휴대폰에 보관해서 바로 되돌릴 수 있어요.</div>
+  <input id="pw" type="password" inputmode="numeric" placeholder="비밀번호" style="margin-top:8px">
+  <button id="btnGo">시트에 반영하기</button>
+  <button id="btnUndo" class="sec" hidden>방금 반영한 것 되돌리기</button>
+  <div id="res" style="margin-top:8px"></div>
+</div>
+</main>
+<script>
+const SHEET_ID = '1dAe6YaJHM7gcgrobXn9Hzi-9ki4nqmmfSMf0aMYm2dc';
+const URL_ = 'https://script.google.com/macros/s/AKfycbywqQs0U3Erp3VGG0f17SklgH46yRtWcDt_sHgoakzYtDUsFy3_iZ0cMh16VnkUtsSJCA/exec';
+const US = '카리스', OPP0 = '태풍야구단', DATE = '2026-11-28', YEAR = '2026';
+const PLACE = '성곡야구장', LEAGUE = '안산시야구소프트볼협회 국민낙곱새배 야구대회';
+const T = { sched:'일정', box:'박스스코어', bp:'박스_투수', inn:'이닝스코어', pa:'타석기록', sb:'시즌_타자', sp:'시즌_투수', team:'팀기록' };
+const HEAD = {
+  box:['날짜','상대팀','팀','구분','순서','포지션','이름','타수','안타','타점','도루','득점','볼넷','사구'],
+  bp:['날짜','상대팀','팀','이름','결과','이닝','피안타','실점','자책','4사구','삼진'],
+  inn:['날짜','상대팀','선후공','팀','1회','2회','3회','4회','5회','6회','7회','R','H','E','B'],
+  pa:['날짜','상대팀','팀','순서','이름','이닝','결과']
+};
+// ---- 경기 기록 (유니크플레이 박스스코어 캡처 기준) ----
+// [순서, 포지션, 이름, 타수, 안타, 타점, 도루, 득점, 볼넷, 사구, 삼진, {이닝:결과}]
+const US_BAT = [
+  [1,'투수','김길태',1,0,0,1,0,1,1,1,{1:'삼진',2:'볼넷,도루',4:'사구,주자아웃'}],
+  [2,'중견','강호연',2,0,0,2,1,1,0,1,{1:'볼넷,도루',2:'삼진',4:'유땅R,도루'}],
+  [3,'좌익','박종석',3,2,1,1,0,0,0,0,{1:'중안,도루,주자아웃',2:'유안',4:'2땅'}],
+  [4,'1루','유윤기',1,0,0,0,0,1,0,0,{1:'볼넷',2:'2플'}],
+  [4,'투수','이지환',1,0,0,0,0,0,0,0,{4:'3파플'}],
+  [5,'2루','최정복',2,1,1,0,0,0,0,0,{1:'중안',3:'유땅'}],
+  [6,'유격','박영훈',2,1,0,0,0,0,0,1,{1:'좌안',3:'낫아웃-'}],
+  [7,'우익','노대영',2,0,0,0,0,0,0,2,{1:'삼진',3:'삼진'}],
+  [8,'3루','이상길',2,1,0,3,2,0,0,0,{2:'2실,도루',4:'좌안,도루,도루'}],
+  [9,'포수','이근영',1,0,0,0,0,0,0,1,{2:'삼진'}],
+  [9,'투수','황순명',1,1,1,1,1,0,0,0,{4:'좌안,도루'}]
+];
+const OP_BAT = [
+  [1,'3루','최지훈',1,1,0,1,1,1,0,0,{1:'우안,도루,볼넷'}],
+  [1,'좌익','이동훈',2,0,1,0,1,0,0,1,{2:'대타,3실',3:'삼진'}],
+  [2,'2루','최정수',3,1,1,1,1,0,0,0,{1:'좌안,도루,중플',2:'1땅'}],
+  [3,'좌익','강기원',2,1,0,2,2,1,0,0,{1:'투실',2:'볼넷,도루,도루,좌안'}],
+  [4,'포수','안희왕',2,1,1,1,2,1,0,0,{1:'좌중2',2:'볼넷,도루,3땅'}],
+  [5,'1루','김동욱',1,0,2,0,2,2,0,1,{1:'낫아웃-',2:'볼넷',3:'볼넷'}],
+  [6,'지타','박주영',1,0,0,1,2,2,0,0,{1:'볼넷,도루',2:'3실',3:'볼넷'}],
+  [7,'유격','황민원',1,0,2,0,0,1,0,0,{1:'중희플',2:'2땅',3:'볼넷'}],
+  [8,'중견','양남규',2,1,2,0,2,1,0,0,{1:'볼넷',2:'좌중그홈',3:'3파플'}],
+  [9,'우익','김준형',2,1,2,2,1,1,0,1,{1:'우안,도루',2:'볼넷,도루',3:'삼진'}]
+];
+// [이름, 결과, 이닝(아웃수), 피안타, 실점, 자책, 볼넷, 사구, 삼진, 피홈런]
+const US_PIT = [['김길태','패',3,4,6,1,3,0,1,0],['이지환','',3,2,7,3,4,0,0,1],['황순명','',3,0,0,0,3,0,2,0]];
+const OP_PIT = [['이희찬','승',9,4,2,1,3,0,6,0],['안희왕','',3,2,2,2,1,0,0,0]];
+const INN = { us:[1,1,0,2], op:[6,7,1], usRHEB:[4,6,3,3], opRHEB:[14,6,1,10] };
+// 1루타·2루타·3루타·홈런 (카리스 타자: 이번 경기 안타는 모두 단타)
+const XBH = {};
+
+// ---- 시트 읽기 ----
+let _gv = 0;
+function cellText(c){ if(!c) return ''; if(c.f != null && c.f !== '') return String(c.f); if(c.v == null) return ''; const m = String(c.v).match(/^Date\((\d+),(\d+),(\d+)/); if(m) return `${m[1]}-${String(+m[2]+1).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`; return String(c.v); }
+function readTab(name){
+  return new Promise(resolve => {
+    const cb = '__gv' + (++_gv), s = document.createElement('script');
+    const timer = setTimeout(() => fin(null), 20000);
+    function fin(v){ clearTimeout(timer); delete window[cb]; s.remove(); resolve(v); }
+    window[cb] = r => {
+      if(!r || r.status !== 'ok') return fin(null);
+      let heads = r.table.cols.map(c => (c.label || '').trim()), rows = r.table.rows.map(x => (x.c || []).map(cellText));
+      if(heads.every(h => !h)){ heads = rows[0] || []; rows = rows.slice(1); }
+      fin({ head: heads, rows: rows.filter(x => x.some(c => String(c).trim() !== '')) });
+    };
+    s.onerror = () => fin(null);
+    s.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:${cb}&headers=1&sheet=${encodeURIComponent(name)}&_=${Date.now()}`;
+    document.head.appendChild(s);
+  });
+}
+const N = v => { const x = parseFloat(String(v ?? '').replace(/[,​]/g, '')); return isNaN(x) ? 0 : x; };
+const dkey = v => { const m = String(v || '').replace(/​/g,'').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/); return m ? `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}` : ''; };
+const ipOuts = v => { const [a, b] = String(v || '0').replace(/​/g,'').split('.'); return N(a) * 3 + N(b); };
+const ipStr = o => Math.floor(o / 3) + (o % 3 ? '.' + (o % 3) : '');
+const rate = (x, like) => { const s = x.toFixed(3); return /^\s*\./.test(String(like || '')) ? s.replace(/^0\./, '.') : s; };
+const col = (head, names) => { for(const n of names){ const i = head.indexOf(n); if(i >= 0) return i; } return -1; };
+
+let ORIG = {}, NEXT = {}, notes = [];
+function toRows(t){ return [t.head.slice(), ...t.rows.map(r => { const x = r.slice(); while(x.length < t.head.length) x.push(''); return x; })]; }
+function ensure(t, key){ return t && t.head.length && t.head.some(Boolean) ? t : { head: HEAD[key].slice(), rows: [], fresh: true }; }
+function putRows(t, objs){ objs.forEach(o => t.rows.push(t.head.map(h => o[h] ?? ''))); }
+
+async function main(){
+  const st = document.getElementById('st');
+  const keys = Object.keys(T), got = await Promise.all(keys.map(k => readTab(T[k])));
+  const D = {}; keys.forEach((k, i) => D[k] = got[i]);
+  if(!D.sched || !D.sched.rows.length){ st.innerHTML = '<span class="bad">일정 탭을 읽지 못했어요.</span> 인터넷 연결을 확인하고 새로고침해 주세요.'; return; }
+  keys.forEach(k => { if(D[k]) ORIG[T[k]] = toRows(D[k]); });
+
+  // 일정
+  const sh = D.sched.head, iD = col(sh,['날짜']), iO = col(sh,['상대팀']), iR = col(sh,['결과']), iS = col(sh,['점수']), iP = col(sh,['장소']), iL = col(sh,['대회','리그']), iLat = col(sh,['위도']), iLon = col(sh,['경도']), iT = col(sh,['시간']), iH = col(sh,['선후공']);
+  let g = D.sched.rows.find(r => dkey(r[iD]) === DATE && /태풍/.test(r[iO] || '')) || D.sched.rows.find(r => dkey(r[iD]) === DATE);
+  if(!g){ g = sh.map(() => ''); g[iD] = DATE; g[iO] = OPP0; if(iT >= 0) g[iT] = '10:00'; if(iH >= 0) g[iH] = '선공'; D.sched.rows.push(g); notes.push('일정에 11/28 경기가 없어서 새로 추가해요'); }
+  const OPP = (g[iO] || OPP0).trim();
+  const before = `${g[iR] || '-'} ${g[iS] || ''}`.trim();
+  g[iR] = '패'; if(iS >= 0) g[iS] = '4:14';
+  if(iP >= 0 && !/성곡/.test(g[iP] || '')){ notes.push(`장소: ${g[iP] || '(빈칸)'} → ${PLACE}`); g[iP] = PLACE; if(iLat >= 0) g[iLat] = ''; if(iLon >= 0) g[iLon] = ''; }
+  if(iL >= 0 && !String(g[iL] || '').trim()) g[iL] = LEAGUE;
+  notes.push(`일정 결과: ${before} → 패 4:14`);
+
+  // 경기 기록 (같은 날짜 줄은 지우고 새로)
+  const box = ensure(D.box,'box'), bp = ensure(D.bp,'bp'), inn = ensure(D.inn,'inn'), pa = ensure(D.pa,'pa');
+  const already = box.rows.some(r => dkey(r[col(box.head,['날짜'])]) === DATE);
+  [box, bp, inn, pa].forEach(t => { const i = col(t.head,['날짜']); t.rows = t.rows.filter(r => dkey(r[i]) !== DATE); });
+  const bo = (team, a) => ({ 날짜:DATE, 상대팀:OPP, 팀:team, 구분:'타자', 순서:a[0], 포지션:a[1], 이름:a[2], 타수:a[3], 안타:a[4], 타점:a[5], 도루:a[6], 득점:a[7], 볼넷:a[8], 사구:a[9], 삼진:a[10] });
+  const tot = (team, L) => { const s = i => L.reduce((m, a) => m + a[i], 0); return { 날짜:DATE, 상대팀:OPP, 팀:team, 구분:'합계', 타수:s(3), 안타:s(4), 타점:s(5), 도루:s(6), 득점:s(7), 볼넷:s(8), 사구:s(9), 삼진:s(10) }; };
+  putRows(box, [...US_BAT.map(a => bo(US, a)), tot(US, US_BAT), ...OP_BAT.map(a => bo(OPP, a)), tot(OPP, OP_BAT)]);
+  const po = (team, a) => ({ 날짜:DATE, 상대팀:OPP, 팀:team, 이름:a[0], 결과:a[1], 이닝:ipStr(a[2]), 피안타:a[3], 실점:a[4], 자책:a[5], '4사구':a[6] + a[7], 삼진:a[8] });
+  putRows(bp, [...US_PIT.map(a => po(US, a)), ...OP_PIT.map(a => po(OPP, a))]);
+  const io = (team, side, L, x) => { const o = { 날짜:DATE, 상대팀:OPP, 선후공:side, 팀:team, R:x[0], H:x[1], E:x[2], B:x[3] }; L.forEach((v, i) => o[(i + 1) + '회'] = v); return o; };
+  putRows(inn, [io(US,'선공',INN.us,INN.usRHEB), io(OPP,'후공',INN.op,INN.opRHEB)]);
+  const paRows = [];
+  for(let i = 1; i <= 4; i++){
+    US_BAT.forEach(a => { if(a[11][i]) paRows.push({ 날짜:DATE, 상대팀:OPP, 팀:US, 순서:a[0], 이름:a[2], 이닝:i, 결과:a[11][i] }); });
+    OP_BAT.forEach(a => { if(a[11][i]) paRows.push({ 날짜:DATE, 상대팀:OPP, 팀:OPP, 순서:a[0], 이름:a[2], 이닝:i, 결과:a[11][i] }); });
+  }
+  putRows(pa, paRows);
+  NEXT[T.box] = toRows(box); NEXT[T.bp] = toRows(bp); NEXT[T.inn] = toRows(inn); NEXT[T.pa] = toRows(pa);
+  NEXT[T.sched] = toRows(D.sched);
+  notes.push(`박스스코어 양 팀 ${US_BAT.length + OP_BAT.length}명, 투수 ${US_PIT.length + OP_PIT.length}명, 이닝 점수, 타석기록 ${paRows.length}칸`);
+
+  // 시즌 누적 (이미 반영된 경기면 건너뜀)
+  const chg = [];
+  if(already){ notes.push('이 경기는 전에 이미 반영돼 있어서 시즌 누적은 다시 더하지 않아요 (경기 기록만 새로 고쳐요)'); }
+  else {
+    if(D.sb && D.sb.rows.length) seasonBat(D.sb, chg);
+    if(D.sp && D.sp.rows.length) seasonPit(D.sp, chg);
+    if(D.team && D.team.rows.length) teamRec(D.team, chg);
+  }
+
+  st.innerHTML = '<span class="ok">시트를 읽었어요.</span> 아래 내용을 확인하고 반영해 주세요.';
+  const pv = document.getElementById('pv'); pv.hidden = false;
+  pv.innerHTML = `<b>바뀌는 내용</b><ul>${notes.map(n => `<li>${n}</li>`).join('')}</ul>` +
+    (chg.length ? `<b>시즌 누적 (${YEAR})</b><table><tr><th>구분</th><th>이름</th><th>바뀌는 값</th></tr>${chg.map(c => `<tr><td>${c[0]}</td><td>${c[1]}</td><td>${c[2]}</td></tr>`).join('')}</table>` : '');
+  document.getElementById('go').hidden = false;
+}
+
+const inYear = (head, r) => { const i = col(head,['연도']); return i < 0 || !String(r[i] || '').trim() || String(r[i]).includes(YEAR); };
+function seasonBat(t, chg){
+  const h = t.head, c = n => col(h, n);
+  const C = { 이름:c(['이름']), TG:c(['팀게임']), G:c(['선수게임','경기']), PA:c(['타석']), AB:c(['타수']), H:c(['총안타','안타']), B1:c(['1루타']), HR:c(['홈런']), RBI:c(['타점']), R:c(['득점']), SB:c(['도루']), BB:c(['볼넷']), HBP:c(['사구']), SO:c(['삼진']), AVG:c(['타율']), OBP:c(['출루율']), SLG:c(['장타율']), OPS:c(['OPS']), Y:c(['연도']) };
+  const rows = t.rows.filter(r => inYear(h, r));
+  if(C.TG >= 0) rows.forEach(r => r[C.TG] = String(N(r[C.TG]) + 1));
+  const tg = C.TG >= 0 ? Math.max(0, ...rows.map(r => N(r[C.TG]))) : 0;
+  US_BAT.forEach(a => {
+    const [, , name, ab, hit, rbi, sb, run, bb, hbp, so] = a;
+    let r = rows.find(x => (x[C.이름] || '').trim() === name), isNew = false;
+    if(!r){ r = h.map(() => ''); r[C.이름] = name; if(C.Y >= 0) r[C.Y] = YEAR; if(C.TG >= 0) r[C.TG] = String(tg); const k = col(h,['소속구분']); if(k >= 0 && rows[0]) r[k] = rows[0][k]; [C.AVG,C.OBP,C.SLG,C.OPS,C.ERA,C.WHIP].forEach(i => { if(i >= 0 && rows[0]) r[i] = rows[0][i]; }); t.rows.push(r); isNew = true; }
+    const old = { pa:N(r[C.PA]), ab:N(r[C.AB]), obp:N(r[C.OBP]), slg:N(r[C.SLG]) };
+    const add = (i, v) => { if(i >= 0) r[i] = String(N(r[i]) + v); };
+    add(C.G, 1); add(C.PA, ab + bb + hbp); add(C.AB, ab); add(C.H, hit); add(C.B1, hit); add(C.RBI, rbi); add(C.R, run); add(C.SB, sb); add(C.BB, bb); add(C.HBP, hbp); add(C.SO, so);
+    const nab = N(r[C.AB]), nh = N(r[C.H]), npa = old.pa + ab + bb + hbp;
+    let avg, obp, slg;
+    if(C.AVG >= 0){ avg = nab ? nh / nab : 0; r[C.AVG] = rate(avg, r[C.AVG]); }
+    if(C.OBP >= 0){ const ob = Math.round(old.obp * old.pa) + hit + bb + hbp; obp = npa ? ob / npa : 0; r[C.OBP] = rate(obp, r[C.OBP]); }
+    if(C.SLG >= 0){ const tb = Math.round(old.slg * old.ab) + hit; slg = nab ? tb / nab : 0; r[C.SLG] = rate(slg, r[C.SLG]); }
+    if(C.OPS >= 0 && obp != null && slg != null) r[C.OPS] = rate(obp + slg, r[C.OPS]);
+    chg.push(['타자', name + (isNew ? ' (새로)' : ''), `타수 +${ab}, 안타 +${hit}${C.AVG >= 0 ? ` → 타율 ${r[C.AVG]}` : ''}`]);
+  });
+  NEXT[T.sb] = toRows(t);
+}
+function seasonPit(t, chg){
+  const h = t.head, c = n => col(h, n);
+  const C = { 이름:c(['이름']), TG:c(['팀게임']), G:c(['선수게임','경기']), IP:c(['이닝']), W:c(['승']), L:c(['패']), SO:c(['삼진','탈삼진']), H:c(['피안타']), HR:c(['피홈런']), R:c(['실점']), ER:c(['자책']), BB:c(['볼넷']), HBP:c(['사구']), ERA:c(['ERA','평균자책']), WHIP:c(['WHIP']), WP:c(['승률']), Y:c(['연도']) };
+  const rows = t.rows.filter(r => inYear(h, r));
+  if(C.TG >= 0) rows.forEach(r => r[C.TG] = String(N(r[C.TG]) + 1));
+  const tg = C.TG >= 0 ? Math.max(0, ...rows.map(r => N(r[C.TG]))) : 0;
+  US_PIT.forEach(a => {
+    const [name, dec, outs, hit, run, er, bb, hbp, so, hr] = a;
+    let r = rows.find(x => (x[C.이름] || '').trim() === name), isNew = false;
+    if(!r){ r = h.map(() => ''); r[C.이름] = name; if(C.Y >= 0) r[C.Y] = YEAR; if(C.TG >= 0) r[C.TG] = String(tg); const k = col(h,['소속구분']); if(k >= 0 && rows[0]) r[k] = rows[0][k]; [C.AVG,C.OBP,C.SLG,C.OPS,C.ERA,C.WHIP].forEach(i => { if(i >= 0 && rows[0]) r[i] = rows[0][i]; }); t.rows.push(r); isNew = true; }
+    const o0 = ipOuts(r[C.IP]), ip0 = o0 / 3;
+    const er0 = C.ER >= 0 ? N(r[C.ER]) : Math.round(N(r[C.ERA]) * ip0 / 7);
+    const wh0 = (C.H >= 0 && C.BB >= 0) ? N(r[C.H]) + N(r[C.BB]) + (C.HBP >= 0 ? N(r[C.HBP]) : 0) : Math.round(N(r[C.WHIP]) * ip0);
+    const add = (i, v) => { if(i >= 0) r[i] = String(N(r[i]) + v); };
+    add(C.G, 1); add(C.SO, so); add(C.H, hit); add(C.HR, hr); add(C.R, run); add(C.ER, er); add(C.BB, bb); add(C.HBP, hbp);
+    if(dec === '승') add(C.W, 1); if(dec === '패') add(C.L, 1);
+    const o1 = o0 + outs, ip1 = o1 / 3; if(C.IP >= 0) r[C.IP] = ipStr(o1);
+    if(C.ERA >= 0) r[C.ERA] = ip1 ? ((er0 + er) * 7 / ip1).toFixed(2) : '0.00';
+    if(C.WHIP >= 0) r[C.WHIP] = ip1 ? ((wh0 + hit + bb + hbp) / ip1).toFixed(2) : '0.00';
+    if(C.WP >= 0){ const w = N(r[C.W]), l = N(r[C.L]); r[C.WP] = w + l ? rate(w / (w + l), r[C.WP]) : r[C.WP]; }
+    chg.push(['투수', name + (isNew ? ' (새로)' : ''), `${ipStr(outs)}이닝 ${run}실점${dec ? ' ' + dec : ''}${C.ERA >= 0 ? ` → ERA ${r[C.ERA]}` : ''}`]);
+  });
+  NEXT[T.sp] = toRows(t);
+}
+function teamRec(t, chg){
+  const h = t.head, iK = col(h,['항목']), iV = col(h,['값']);
+  if(iK < 0 || iV < 0) return;
+  const rows = t.rows.filter(r => inYear(h, r));
+  const get = k => rows.find(r => (r[iK] || '').trim() === k);
+  const add = (k, v) => { const r = get(k); if(r){ const b = r[iV]; r[iV] = String(N(r[iV]) + v); chg.push(['팀', k, `${b} → ${r[iV]}`]); } };
+  add('경기', 1); add('패', 1); add('득점', 4); add('실점', 14);
+  const wp = get('승률'), w = get('승'), l = get('패');
+  if(wp && w && l){ const W = N(w[iV]), L = N(l[iV]); if(W + L){ const b = wp[iV]; wp[iV] = rate(W / (W + L), b); chg.push(['팀', '승률', `${b} → ${wp[iV]}`]); } }
+  NEXT[T.team] = toRows(t);
+}
+
+async function send(tabs, pw){
+  const body = JSON.stringify({ action:'import', password:pw, tabs });
+  try{
+    const r = await fetch(URL_, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body });
+    const j = await r.json().catch(() => null);
+    if(j && j.ok) return { ok:true, j };
+    return { ok:false, msg: (j && (j.error || j.message)) || '응답을 확인하지 못했어요' };
+  }catch(e){
+    try{ await fetch(URL_, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body }); return { ok:true, blind:true }; }
+    catch(e2){ return { ok:false, msg:'보내지 못했어요. 인터넷 연결을 확인해 주세요' }; }
+  }
+}
+const BK = 'charis-update-backup-' + DATE;
+document.getElementById('btnGo').onclick = async () => {
+  const pw = document.getElementById('pw').value.trim(), res = document.getElementById('res'), b = document.getElementById('btnGo');
+  if(!pw){ res.innerHTML = '<span class="bad">비밀번호를 넣어 주세요</span>'; return; }
+  const back = {}; Object.keys(NEXT).forEach(k => { back[k] = ORIG[k] || []; });
+  try{ localStorage.setItem(BK, JSON.stringify(back)); }catch(e){}
+  b.disabled = true; res.textContent = '반영하는 중…';
+  const r = await send(NEXT, pw);
+  if(r.ok){
+    res.innerHTML = `<span class="ok">반영했어요!</span>${r.blind ? ' (응답은 못 받았지만 보냈어요. 팀 페이지에서 확인해 주세요)' : ''}<br><a href="./" style="color:var(--acc)">카리스 페이지 열기 →</a> 열고 새로고침을 눌러 주세요.`;
+    document.getElementById('btnUndo').hidden = false;
+  } else { res.innerHTML = `<span class="bad">반영하지 못했어요:</span> ${r.msg}`; b.disabled = false; }
+};
+document.getElementById('btnUndo').onclick = async () => {
+  const res = document.getElementById('res'); let back = null;
+  try{ back = JSON.parse(localStorage.getItem(BK)); }catch(e){}
+  if(!back || !Object.keys(back).length){ res.innerHTML = '<span class="bad">되돌릴 내용이 없어요</span>'; return; }
+  res.textContent = '되돌리는 중…';
+  const r = await send(back, document.getElementById('pw').value.trim());
+  res.innerHTML = r.ok ? '<span class="ok">반영 전으로 되돌렸어요.</span>' : `<span class="bad">되돌리지 못했어요:</span> ${r.msg}`;
+};
+main();
+</script>
+</body>
+</html>
